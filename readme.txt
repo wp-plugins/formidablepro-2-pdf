@@ -3,8 +3,8 @@ Contributors: alexandre67fr
 Donate link: http://formidablepro2pdf.com/
 Tags: fpropdf, pdf, generation, pdftk, formidable, forms
 Requires at least: 3.0.1
-Tested up to: 4.1.1
-Stable tag: 4.1
+Tested up to: 4.2.1
+Stable tag: 1.6
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -68,12 +68,16 @@ Yes, the plugin works with WordPress Multisite – site limits still apply.
 
 == Changelog ==
 
-= 0.5 =
+= 1.6.0.1 =
+
+Tested compatibility with WordPress 4.2.1 and Formidable Forms 2.0.04
+
+= 1.6 =
 
 Added shortcodes, export into PDF, API interface, Fields Map Designer.
 
 == Upgrade Notice ==
 
-= 0.5 =
+= 1.6 =
 
 First version of the plugin with basic functionality.
