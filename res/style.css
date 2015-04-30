@@ -1,0 +1,66 @@
+.layout_builder
+{
+    border: 2px solid #ddd;
+    background-color: #ededed;
+    padding: 3px;
+    margin-left: 3px;
+    width: 100%;
+    display: none;
+}
+
+.left
+{
+    float: left;
+}
+
+.right
+{
+    float: right;
+}
+
+.parent
+{
+    margin-top: 10px;
+    padding: 10px;
+    height: 100%;
+    clear: both;
+}
+
+.cltable
+{
+    border-collapse:collapse
+}
+
+.cltable > thead
+{
+    background-color: #E8E0FF;
+}
+
+.cltable th
+{
+    padding: 4px;
+}
+
+.cltable td, .cltable th
+{
+    border: 2px solid #BDA0FA;
+    text-align: center;
+}
+
+#loader
+{
+    display: none;
+}
+
+#delete
+{
+    color: red;
+    font-weight: bold;
+    font-size: 25px;
+}
+
+#maps
+{
+    font-weight: bold;
+    font-size: 14px;
+}

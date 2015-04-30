@@ -1,0 +1,134 @@
+.formidable-shortcode-container
+  //float: left
+  margin: 40px 3px
+  clear: both
+  width: 100%
+  border: 2px solid #ddd
+  background-color: #ededed
+  padding: 20px
+  box-sizing: border-box
+  text-align: center
+  input
+    display: block
+    width: 100%
+    font-size: 1.4em
+    font-size: 1em
+    text-align: center
+    line-height: 1.5em
+    margin: 10px 0
+    font-weight: bold
+    background: #fff
+    border: 1px solid #ddd
+
+.formidable-pro-fpdf
+
+  .hidden-use-second
+    display: none
+
+  .updated, .error
+    margin-left: 0 !important
+    margin-right: 0 !important
+    margin-bottom: 20px
+
+  #frm-bg, #loader
+    border: 2px solid #ddd
+    background-color: #ededed
+    padding: 20px
+  #loader
+    margin-top: 40px
+    img
+      vertical-align: middle
+      margin-top: -3px
+
+  .custom-preview-img
+    //width: 300px
+    max-width: 100%
+    display: block
+    height: auto
+    background: #fff 
+    margin: 10px 0 0 0
+
+  #wpfx_layout_form > table
+    width: 100%
+    select, #wpfx_clname
+      width: 300px
+      max-width: 100%
+      //display: block
+    table
+      //table-layout: fixed
+      td
+        vertical-align: top !important
+        padding: 5px !important
+      select
+        width: auto
+        max-width: 200px
+        display: block
+
+  .cltable
+    width: 100%
+    #delete
+      cursor: pointer
+
+  & > div
+    max-width: 900px
+  ._first form
+    select
+      width: 400px
+      max-width: 100%
+      //display: block
+
+.fpropdf-overlay
+  position: fixed
+  top: 0
+  left: 0
+  width: 100%
+  height: 100%
+  background: #000
+  background: rgba(0, 0, 0, 0.5)
+  z-index: 999999
+  form
+    position: fixed
+    top: 50%
+    text-align: center
+    width: 100%
+    margin-top: -70px
+    div
+      padding: 20px
+      background: #fff
+      margin: 0 auto
+      display: inline-block
+      border-radius: 5px
+      box-shadow: 0 0 10px 10px rgba(0, 0, 0, 0.3)
+
+.formidable-pro-fpdf
+  .layout_builder
+    padding: 10px 20px 20px 20px
+
+.fpropdf-sites
+  list-style-type: decimal
+  .opt-inactive
+    color: red
+  .opt-active
+    color: green
+  li
+    opacity: 0.7
+    font-weight: bold
+    & > a
+      //vertical-align: middle !important
+      opacity: 0
+      //float: right
+      //clear: both
+    &:hover > a
+      opacity: 1
+    &:hover
+      opacity: 1
+      ul li
+        opacity: 0.7
+        &:hover
+          opacity: 1
+    ul
+      list-style-type: circle
+      margin-left: 20px
+      margin-top: 10px
+      li
+        margin-bottom: 0
