@@ -130,6 +130,17 @@ class FDFMaker
           switch ( $format )
           {
 
+            case 'signature';
+              global $fpropdfSignatures;
+              if ( !$fpropdfSignatures )
+                $fpropdfSignatures = array();
+              $fpropdfSignatures[] = array(
+                'data' => $v,
+                'field' => $values[ 0 ],
+              );
+              $v = '';
+              break;
+
             case 'curDate':
               $v = date('m/d/y');
               break;

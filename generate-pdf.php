@@ -12,6 +12,8 @@ if ( ! function_exists('fpropdf_header') )
   }
 }
 
+global $fpropdfSignatures;
+
 
 
 $error = 0;
@@ -83,6 +85,8 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
       passthru($command);
     }
 
+
+
     $data = ob_get_clean();
 
     if ( ( !defined('FPROPDF_IS_MASTER') and !$data and ! fpropdf_custom_command_exist('pdftk') and fpropdf_is_activated() ) or isset( $_GET['licence_test'] ) )
@@ -99,8 +103,10 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
         'site_ip' => $_SERVER['SERVER_ADDR'],
         'filename' => $generated_filename,
         'code'   => get_option('fpropdf_licence'),
+        'fpropdfSignatures' => @serialize($fpropdfSignatures),
       );
       $post = array_merge( $post, $old_post );
+      //print_r($post); exit;
 
       $keys = explode(' ', 'actual actual2 desired');
       foreach ( $keys as $key )

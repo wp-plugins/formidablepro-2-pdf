@@ -116,7 +116,8 @@ function onLayoutChange()
                               date: 'Date MM/DD/YY',
                               curDate: 'Current Date MM/DD/YY',
                               capitalize: 'Capitalize',
-                              returnToComma: 'Carriage return to comma'
+                              returnToComma: 'Carriage return to comma',
+                              signature: 'Signature'
                             };
                             var options2 = "";
                             for ( var key2 in formats2 )

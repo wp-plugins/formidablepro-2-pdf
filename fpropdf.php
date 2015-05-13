@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.3
+ * Version: 1.6.0.4
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -902,10 +902,10 @@ function wpfx_admin()
     echo "<td><select id = 'wpfx_layoutvis' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
 
   echo "<tr><td>Attach PDF to Email notifications</td>";
-  //if ( fpropdf_is_activated() and !fpropdf_is_trial() )
+  if ( fpropdf_is_activated() and !fpropdf_is_trial() )
     echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att'><option value = '1'>Yes</option><option value = '0'>No</option></select></td></tr>";
-  //else
-    //echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
+  else
+    echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
 
   // now create dynamic list
   echo "<tr><td colspan = '2'><table class = 'cltable'>";
@@ -1139,6 +1139,8 @@ function wpfx_getdataset()
             }
           }
 
+          if ( ! $name )
+            $name = "[empty]";
         } 
 
         if ( ! $name )
