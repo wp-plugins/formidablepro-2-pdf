@@ -19,7 +19,7 @@ $file = $_GET['file'];
 $file = base64_decode( $file );
 if ( preg_match('/[\/\\]/', $file) )
   die("File cannot contain slashes");
-$file = __DIR__ . '/forms/' . $file;
+$file = FPROPDF_FORMS_DIR . $file;
 
 global $currentFile;
 if ( $currentFile )
