@@ -3,6 +3,17 @@
 if ( !defined('ABSPATH') )
   exit;
 
+if ( ! function_exists('fpropdf_header') )
+{
+  function fpropdf_header( $h )
+  {
+    if ( ! defined('FPROPDF_NO_HEADERS') )
+      @header( $h );
+  }
+}
+
+global $fpropdfSignatures;
+
 
 
 $error = 0;
@@ -45,11 +56,13 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
   if($cont)
   {
 
-    header('Content-type: application/pdf');
-    header("Content-Disposition: attachment; filename='".$generated_filename."'");
+    fpropdf_header('Content-type: application/pdf');
+    fpropdf_header("Content-Disposition: attachment; filename='".$generated_filename."'");
 
     if ( isset($_GET['inline']) )
-      header("Content-Disposition: inline; filename='".$generated_filename."'");
+      fpropdf_header("Content-Disposition: inline; filename='".$generated_filename."'");
+
+    define('FPROPDF_FILENAME', $generated_filename);
 
     ob_start();
 
@@ -72,6 +85,8 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
       passthru($command);
     }
 
+
+
     $data = ob_get_clean();
 
     if ( ( !defined('FPROPDF_IS_MASTER') and !$data and ! fpropdf_custom_command_exist('pdftk') and fpropdf_is_activated() ) or isset( $_GET['licence_test'] ) )
@@ -88,8 +103,10 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
         'site_ip' => $_SERVER['SERVER_ADDR'],
         'filename' => $generated_filename,
         'code'   => get_option('fpropdf_licence'),
+        'fpropdfSignatures' => @serialize($fpropdfSignatures),
       );
       $post = array_merge( $post, $old_post );
+      //print_r($post); exit;
 
       $keys = explode(' ', 'actual actual2 desired');
       foreach ( $keys as $key )
@@ -123,8 +140,8 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
     if ( ! $data )
     {
       ob_start();
-      header('Content-Type: text/html; charset=utf-8');
-      header("Content-Disposition: inline; filename='error.txt'");
+      fpropdf_header('Content-Type: text/html; charset=utf-8');
+      fpropdf_header("Content-Disposition: inline; filename='error.txt'");
       $debug = shell_exec("$command 2>&1");
       if ( preg_match('/java\.lang\.NullPointerException/', $debug) )
         $debug = "The form could not be filled in.\n\n$debug";
@@ -137,10 +154,15 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
         echo "\nThe command was: $command";
       echo "\n$debug</pre>";
       $data = ob_get_clean();
+      if ( ! defined('FPROPDF_GEN_ERROR') )
+        define( 'FPROPDF_GEN_ERROR', $data );
     }
 
-    header("Content-length: ".strlen($data));
-    echo $data;
+    fpropdf_header("Content-length: ".strlen($data));
+    if ( ! defined( 'FPROPDF_NO_HEADERS' ) )
+      echo $data;
+    elseif ( ! defined( 'FPROPDF_CONTENT' ) )
+      define( 'FPROPDF_CONTENT', $data);
 
   }
   else 

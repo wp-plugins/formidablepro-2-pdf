@@ -32,15 +32,25 @@ class FDFMaker
       3 => '1233 Palm Avenue', 2 => 'Ideal Choice Insurance Agency, Inc.', 3680 => '/', 10 => '619-374-2317',
       115 => 'None', 114 => '/No', 113 => '/No', 112 => '/No', 111 => '/No', 110 => '/No', 3670 => '/');
 
-    // add actual data if present
-    if(is_array($data))
-      $defaults = $defaults + $data; // welcome to PHP!
+    if( !is_array($data) )
+      $data = array();
+
+    foreach ( $defaults as $k => $v )
+    {
+      $found = false;
+      foreach ( $data as $key => $values )
+        if ( ( $values[ 0 ] == $k ) and $values[1] )
+          $found = true;
+      if ( ! $found )
+        $data[] = array( $k, $v );
+
+    }
 
     // format filename
     $file = $remote ? $remote : 'InflatableApp.pdf';
 
     // create FDF
-    return ($this->makeFDF($defaults, $file));
+    return ($this->makeFDF($data, $file));
   }
 
   function makeBusinessQuote($data = false, $remote = false)
@@ -63,9 +73,19 @@ class FDFMaker
       113 => '/No', 112 => '/No', 111 => '/No', 110 => '/No', 3670 => '/');
 
 
-    // add actual data if present
-    if(is_array($data))
-      $defaults = $defaults + $data; // merge arrays
+    if( !is_array($data) )
+      $data = array();
+
+    foreach ( $defaults as $k => $v )
+    {
+      $found = false;
+      foreach ( $data as $key => $values )
+        if ( ( $values[ 0 ] == $k ) and $values[1] )
+          $found = true;
+      if ( ! $found )
+        $data[] = array( $k, $v );
+
+    }
 
     // format filename
     $file = $remote ? $remote : 'BusinessQuote.pdf';
@@ -83,69 +103,99 @@ class FDFMaker
     $fdf  = '%FDF-1.2'.$cr.'%'.chr(hexdec('e2')).chr(hexdec('e3')).chr(hexdec('cf')).chr(hexdec('d3')).$cr;
     $fdf .= '1 0 obj '.$cr.'<<'.$cr.'/FDF '.$cr.'<<'.$cr.'/Fields [';
 
-
     global $currentLayout;
     if ( $currentLayout )
     {
 
       $formats = $currentLayout['formats'];
-      foreach ( $formats as $key => $format )
+      //print_r($formats); exit;
+      foreach ( $formats as $_format )
       {
 
-        if ( !isset( $data[$key] ) ) continue;
+        $key = $_format[ 0 ];
+        $format = $_format[ 1 ];
+        //print_r($formats); exit;
 
-        $v = $data[ $key ];
+        //$foundFormat = false;
 
-        switch ( $format )
+        foreach ( $data as $dataKey => $values )
         {
 
-          case 'curDate':
-            $v = date('m/d/y');
-            break;
+          if ( $values[ 0 ] != $key )
+            continue;
 
-          case 'tel':
-            $v2 = preg_replace('/[^0-9]+/', '', $v);
-            $v2 = intval($v2);
-            $v2 = sprintf("%010d", $v2);
-            if ( preg_match( '/(\d{3})(\d{3})(\d{4})$/', $v2,  $matches ) )
-              $v = $matches[1] . '-' .$matches[2] . '-' . $matches[3];
-            break;
+          $v = $values[ 1 ];
 
-          case 'date':
-            if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
-            {
-              $v = $m[2] . '/' . $m[3] . '/' . substr($m[1], 2, 4);
-            }
-            break;
 
-          case 'returnToComma':
-            $v = str_replace("\r", "", $v);
-            $v = str_replace("\n", ", ", $v);
-            $v = preg_replace('/ +/', ' ', $v);
-            $v = preg_replace('/\, +$/', '', $v);
-            break;
+          switch ( $format )
+          {
 
-          case 'capitalize':
-            $v = preg_replace_callback('/(^[a-z]| [a-z])/u', 'fpropdf_custom_capitalize', $v);
-            break;
- 
+            case 'signature';
+              global $fpropdfSignatures;
+              if ( !$fpropdfSignatures )
+                $fpropdfSignatures = array();
+              $fpropdfSignatures[] = array(
+                'data' => $v,
+                'field' => $values[ 0 ],
+              );
+              $v = '';
+              break;
+
+            case 'curDate':
+              $v = date('m/d/y');
+              break;
+
+            case 'tel':
+              $v2 = preg_replace('/[^0-9]+/', '', $v);
+              $v2 = intval($v2);
+              $v2 = sprintf("%010d", $v2);
+              if ( preg_match( '/(\d{3})(\d{3})(\d{4})$/', $v2,  $matches ) )
+                $v = $matches[1] . '-' .$matches[2] . '-' . $matches[3];
+              break;
+
+            case 'date':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+              {
+                $v = $m[2] . '/' . $m[3] . '/' . substr($m[1], 2, 4);
+              }
+              break;
+
+            case 'returnToComma':
+              $v = str_replace("\r", "", $v);
+              $v = str_replace("\n", ", ", $v);
+              $v = preg_replace('/ +/', ' ', $v);
+              $v = preg_replace('/\, +$/', '', $v);
+              break;
+
+            case 'capitalize':
+              $v = preg_replace_callback('/(^[a-z]| [a-z])/u', 'fpropdf_custom_capitalize', $v);
+              break;
+   
+          }
+
+          $data[ $dataKey ][ 1 ] = $v;
+
         }
 
-        $data[ $key ] = $v;
+        //if ( ! $formatFound )
+          //if ( $format == 'curDate' )
+
 
       }
 
       $currentLayout = false;
     }
 
-    foreach ( $data as $k => $v ) 
-      $data[ $k ] = stripslashes($v);
-    foreach ( $data as $k => $v ) 
-      $data[ $k ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), mb_convert_encoding($v, 'UTF-16BE'));
+    foreach ( $data as $dataKey => $value ) 
+      $data[ $dataKey ][ 1 ] = stripslashes( $value[ 1 ] );
+      $data[ $dataKey ][ 1 ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), mb_convert_encoding($value[1], 'UTF-16BE'));
 
     // generate fields
-    foreach($data as $index => $value)
+    foreach($data as $values)
     {
+      $index = $values[ 0 ];
+      $value = $values[ 1 ];
+
       $fdf .= $cr.'<<';
       $fdf .= $cr.'/V ';
 
@@ -159,6 +209,7 @@ class FDFMaker
 
     // make footer
     $fdf .= ']'.$cr.'/ID [ <'.md5(time()).'>'.$cr.'] >> '.$cr.'>> '.$cr.' endobj '.$cr.'trailer'.$cr.$cr.'<<'.$cr.'/Root 1 0 R'.$cr.'>>'.$cr.'%%EOF'.$cr;
+    //echo $fdf; exit;
 
     return $fdf;
   }

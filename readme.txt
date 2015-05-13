@@ -4,7 +4,7 @@ Donate link: http://formidablepro2pdf.com/
 Tags: fpropdf, pdf, generation, pdftk, formidable, forms
 Requires at least: 3.0.1
 Tested up to: 4.2.2
-Stable tag: 1.6.0.2
+Stable tag: 1.6.0.4
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -67,6 +67,14 @@ Yes, the plugin works with WordPress Multisite – site limits still apply.
 1. Plugin settings page.
 
 == Changelog ==
+
+= 1.6.0.4 =
+
+Signature plugin.
+
+= 1.6.0.3 =
+
+Bugfixing, email attachments.
 
 = 1.6.0.2 =
 

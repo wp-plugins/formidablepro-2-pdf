@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.2
+ * Version: 1.6.0.4
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -12,6 +12,29 @@ if ( !defined('ABSPATH') )
   exit;
 
 
+
+$upload_dir = wp_upload_dir();
+define('FPROPDF_FORMS_DIR', $upload_dir['basedir'] . '/fpropdf-forms/');
+
+if ( ! file_exists( FPROPDF_FORMS_DIR ) )
+{
+  // Create forms folder in wp-content/uploads
+  @mkdir(FPROPDF_FORMS_DIR);
+
+  // Move old forms to new folder
+  $old_forms = __DIR__ . '/forms/';
+
+  if ( file_exists( $old_forms ) )
+    if ($handle = opendir( $old_forms )) 
+    {
+      while (false !== ($entry = readdir($handle)))
+      {
+        if ( $entry == '.' ) continue;
+        if ( $entry == '..' ) continue;
+        @rename( $old_forms . $entry, FPROPDF_FORMS_DIR . $entry );
+      }
+    }
+}
 
 // Plugin settings link in Plugins list
 add_filter( 'plugin_action_links_' . plugin_basename(__FILE__), 'fpropdf_add_action_links' );
@@ -40,6 +63,8 @@ function fpropdf_myplugin_activate() {
     `formats` text,
     PRIMARY KEY (`ID`)
   )');
+  $wpdb->query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  $wpdb->query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
   if ( ! get_option('fpropdf_licence') )
     update_option( 'fpropdf_licence', 'TRIAL' . strtoupper(FPROPDF_SALT) );
@@ -59,7 +84,7 @@ $wpfx_url = trailingslashit( WP_PLUGIN_URL. '/' .dirname( plugin_basename(__FILE
 // Generate file
 function wpfx_output($form, $content)
 {
-  $form = dirname(__FILE__).'/forms/'.$form;
+  $form = FPROPDF_FORMS_DIR . $form;
   $temp = tempnam(sys_get_temp_dir(), 'fdf');
   $file = fopen  ($temp, 'w');
 
@@ -112,7 +137,21 @@ function wpfx_extract($layout, $id, $custom = false)
 
   // get data
   while($row = mysql_fetch_array($result))
-    $data [ $row['id'] ] = $row['value'];
+  {
+    //print_r($row);
+    //$data [ $row['id'] ] = $row['value'];
+    $key = $row['id'];
+    $val = $row['value'];
+    $found = false;
+    foreach ( $data as $dataKey => $values )
+      if ( $values[ 0 ] == $key )
+      {
+        $found = true;
+        $data[ $dataKey ][ 1 ] = $val;
+      }
+    if ( !$found )
+      $data[] = array( $key, $val );
+  }
 
   //print_r($data); exit;
 
@@ -136,31 +175,27 @@ function wpfx_extract($layout, $id, $custom = false)
     break;
   }
 
+  //print_r($data);
+  //print_r($array);
+  //exit;
+
   // Prepare list for fdf forming in case of missing fields
   $awesome = array();
-  if(is_array($array)) foreach($array as $datakey => $fdfkey)
-  {
-    if(array_key_exists($datakey, $data))
+  if(is_array($array)) 
+    foreach($array as $datakey => $fdfKey)
     {
-      // Get value
-      $value = $data[ $datakey ];
-
-      // Filter phone numbers/current
-      switch($datakey)
-      {
-      case 1140:
-      case 1163:
-      case 925:
-      case 932:
-        $value = preg_replace("/[^0-9]/", "", $value);
-        break;
-      }
-
-      $awesome[ $fdfkey ] = $value;
-
+      $found = false;
+      foreach ( $data as $values )
+        if ( $values[0] == $fdfKey[0] )
+        {
+          $awesome[] = array( $fdfKey[ 1 ], $values[ 1 ] );
+          $found = true;
+        }
+      if ( ! $found )
+        $awesome[] = array( $fdfKey[ 1 ], '');
     }
-  }
 
+  //print_r($awesome);
   return $awesome;
 }
 
@@ -231,9 +266,6 @@ function wpfx_admin()
 
   $wpfx_fdf = new FDFMaker();
 
-  // Forms directory
-  $wpfx_forms = $wpfx_url.'forms/';
-
   echo "<div class = 'parent formidable-pro-fpdf'>";
 
   echo "<div class = '_first _left'>";
@@ -269,7 +301,9 @@ function wpfx_admin()
 
   try
   {
-    if ( ! is_writable( $tmp = __DIR__ . '/forms' ) )
+    if ( ! file_exists( $tmp = FPROPDF_FORMS_DIR ) )
+      throw new Exception("Folder $tmp could not be created. Please create it using FTP, and set its permissions to 777.");
+    if ( ! is_writable( $tmp = FPROPDF_FORMS_DIR ) )
       throw new Exception("Folder $tmp should be writable. Please change its permissions to 777.");
   }
   catch ( Exception $e ) 
@@ -361,7 +395,7 @@ function wpfx_admin()
       if ( ! preg_match('/\.pdf$/i', $fname) )
         throw new Exception('The file should be a PDF file and have .pdf file extension. Please <a href="#" class="upl-new-pdf">upload another file</a>.');
       $fname = preg_replace('/\.pdf$/i', '.pdf', $fname);
-      @move_uploaded_file( $file['tmp_name'], __DIR__ . '/forms/' . $fname );
+      @move_uploaded_file( $file['tmp_name'], FPROPDF_FORMS_DIR . $fname );
       echo '<div class="updated" style="margin-left: 0;"><p><b>'.$fname.'</b> has been uploaded. You can now use it in your layouts.</p></div>';
     }
     catch (Exception $e)
@@ -387,23 +421,23 @@ function wpfx_admin()
     switch($_POST['wpfx_layout'])
     {
     case 1:
-      $filename = wpfx_download($wpfx_fdf->makeInflatablesApp(wpfx_extract(1, $_POST['wpfx_dataset']), $wpfx_forms.'InflatableApp.pdf') );
+      $filename = wpfx_download($wpfx_fdf->makeInflatablesApp(wpfx_extract(1, $_POST['wpfx_dataset']), FPROPDF_FORMS_DIR.'InflatableApp.pdf') );
       $filledfm = 'InflatableApp.pdf';
       break;
 
     case 2:
-      $filename = wpfx_download($wpfx_fdf->makeBusinessQuote(wpfx_extract(2, $_POST['wpfx_dataset']), $wpfx_forms.'BusinessQuote.pdf') );
+      $filename = wpfx_download($wpfx_fdf->makeBusinessQuote(wpfx_extract(2, $_POST['wpfx_dataset']), FPROPDF_FORMS_DIR.'BusinessQuote.pdf') );
       $filledfm = 'BusinessQuote.pdf';
       break;
 
     default:
-      $pdf      = $wpfx_forms.$layout['file'];
+      $pdf      = FPROPDF_FORMS_DIR.$layout['file'];
       $filename = wpfx_download($wpfx_fdf->makeFDF(wpfx_extract(3, $_POST['wpfx_dataset'], $layout['data']), $pdf) );
       $filledfm = $layout['file'];
       break;
     }
 
-    $filledfm = dirname(__FILE__).'/forms/'.fpropdf_bash_replace($filledfm);
+    $filledfm = FPROPDF_FORMS_DIR.fpropdf_bash_replace($filledfm);
 
     echo "<input type = 'hidden' name = 'desired' value = '$filledfm' />";
     echo "<input type = 'hidden' name = 'actual'  value = '$filename' />";
@@ -426,10 +460,10 @@ function wpfx_admin()
     {
       $to = $_POST['clto'][$index];
 
-      $formats[ $to ] = $_POST['format'][ $index ];
+      $formats[] = array( $to, $_POST['format'][ $index ] );
 
       if( strlen(trim($value)) && strlen(trim($to)) )
-        $layout[ $value ] = $to;
+        $layout[] = array( $value, $to );
     }
 
     // Get desired dataset name
@@ -438,10 +472,12 @@ function wpfx_admin()
 
     $index = intval($index);
 
+    $add_att = esc_sql( $_POST['wpfx_add_att'] );
+
     if(isset ($_POST['update']) && ($_POST['update'] == 'update'))
-      $r = wpfx_updatelayout(intval($_POST['wpfx_layout']) - 9, esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats);
+      $r = wpfx_updatelayout(intval($_POST['wpfx_layout']) - 9, esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att);
     else 
-      $r = wpfx_writelayout( esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats);
+      $r = wpfx_writelayout( esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att);
 
     if ( $r )
       echo '<div class="updated" style="margin-left: 0;"><p>Layout has been saved!</p></div>';
@@ -824,7 +860,7 @@ function wpfx_admin()
   echo "<tr><td>Select PDF file to work with:</td><td><select name = 'wpfx_clfile' id = 'wpfx_clfile'>";
 
   // Print existing PDF files
-  if ($handle = opendir(__DIR__.'/forms/'))
+  if ($handle = opendir( FPROPDF_FORMS_DIR ))
   {
     while (false !== ($file = readdir($handle)))
     {
@@ -860,12 +896,16 @@ function wpfx_admin()
   }
 
   echo "<tr><td>Flatten PDF form</td>";
-
   if ( fpropdf_is_activated() and !fpropdf_is_trial() )
     echo "<td><select id = 'wpfx_layoutvis'><option value = '1'>Yes</option><option value = '0'>No</option></select></td></tr>";
   else
     echo "<td><select id = 'wpfx_layoutvis' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
 
+  echo "<tr><td>Attach PDF to Email notifications</td>";
+  if ( fpropdf_is_activated() and !fpropdf_is_trial() )
+    echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att'><option value = '1'>Yes</option><option value = '0'>No</option></select></td></tr>";
+  else
+    echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
 
   // now create dynamic list
   echo "<tr><td colspan = '2'><table class = 'cltable'>";
@@ -927,7 +967,8 @@ function wpfx_readlayout($id)
 {
   global $wpdb;
 
-  $query  = "SELECT w.`name`, w.`data`, w.`file`, w.`visible`, w.`dname`, f.`form_key` as `form`, w.`formats` FROM `wp_fxlayouts` w, `".$wpdb->prefix."frm_forms` f WHERE w.`ID` = $id AND f.`id` = w.`form`";
+  //$query  = "SELECT w.`name`, w.`data`, w.`file`, w.`visible`, w.`dname`, f.`form_key` as `form`, w.`formats`, w.`add_att` FROM `wp_fxlayouts` w, `".$wpdb->prefix."frm_forms` f WHERE w.`ID` = $id AND f.`id` = w.`form`";
+  $query  = "SELECT w.*, f.`form_key` as `form` FROM `wp_fxlayouts` w, `".$wpdb->prefix."frm_forms` f WHERE w.`ID` = $id AND f.`id` = w.`form`";
   $result = mysql_query($query);
   $result = mysql_fetch_array($result);
 
@@ -935,19 +976,42 @@ function wpfx_readlayout($id)
   if ( ! is_array($formats) )
     $formats = array();
 
+  $data = unserialize($result['data']);
+
+  $vals = array_values( $data );
+  if ( count($vals) )
+  if ( !is_array($vals[0]) )
+  {
+    $_data = array();
+    foreach ( $data as $k => $v )
+      $_data[] = array( $k, $v );
+    $data = $_data;
+  }
+
+  $vals = array_values( $formats );
+  if ( count($vals) )
+  if ( !is_array($vals[0]) )
+  {
+    $_data = array();
+    foreach ( $formats as $k => $v )
+      $_data[] = array( $k, $v );
+    $formats = $_data;
+  }
+
   return array(
     'name' => $result['name'], 
     'file' => $result['file'], 
     'visible' => $result['visible'], 
     'form' => $result['form'], 
     'index' => $result['dname'], 
-    'data' => unserialize($result['data']), 
+    'add_att' => $result['add_att'], 
+    'data' => $data, 
     'formats' => $formats
   );
 }
 
 
-function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats)
+function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats, $add_att)
 {
   global $wpdb;
 
@@ -963,9 +1027,10 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
   $form = $form['id'];
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
-  $query = "INSERT INTO `wp_fxlayouts` (`name`, `file`, `visible`, `form`, `data`, `dname`, `created_at`, `formats`)
-    VALUES ('$name', '$file', $visible, $form, '$data', $index, NOW(), '$formats')";
+  $query = "INSERT INTO `wp_fxlayouts` (`name`, `file`, `visible`, `form`, `data`, `dname`, `created_at`, `formats`, `add_att`)
+    VALUES ('$name', '$file', $visible, $form, '$data', $index, NOW(), '$formats', '$add_att')";
 
   $_SESSION['new_layout'] = 1;
 
@@ -974,7 +1039,7 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
 
 @session_start();
 
-function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $formats)
+function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $formats, $add_att)
 {
   global $wpdb;
 
@@ -984,12 +1049,14 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
   $formats = serialize($formats);
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
   $query = "UPDATE `wp_fxlayouts` SET `name` = '$name',
     `file` = '$file', `data` = '$data', `visible` = $visible,
     `form` = (SELECT `id` FROM `".$wpdb->prefix."frm_forms` WHERE `form_key` = '$form'),
              `dname` = $index,
              `formats` = '$formats',
+             `add_att` = '$add_att',
              `created_at` = NOW() WHERE `ID` = $id";
 
   return mysql_query($query);
@@ -1020,36 +1087,63 @@ function wpfx_getdataset()
   {
     while ( $row = mysql_fetch_array($result) )
     {
+      //print_r($row);
       $query  = "SELECT `data`, `dname` FROM `wp_fxlayouts` WHERE `form` = $fid";
-      $layout = mysql_query($query);
+      $layoutQuery = mysql_query($query);
 
-      $name = 'unnamed';
+      $name = '';
 
-      if ( mysql_num_rows($layout) )
+      $layouts = array();
+      if ( $numLayout = mysql_num_rows($layoutQuery) )
       {
-        $layout = mysql_fetch_array($layout);
+        while ( $layout = mysql_fetch_array( $layoutQuery ) )
+          $layouts[] = $layout;
+      }
 
-        $count = 0;
-        $found = false;
+      if ( $numLayout )
+      {
 
-        foreach ( unserialize($layout['data'] ) as $key => $value )
+        foreach ( $layouts as $layout )
         {
-          if($count == $layout['dname'])
+
+          //$layout = mysql_fetch_array($layoutQuery);
+          //$name .= print_r($layout, true);
+
+          $count = 0;
+          $found = false;
+
+          foreach ( unserialize($layout['data'] ) as $values )
           {
-            $count = $key;
-            $found = true;
-            break;
+            $key = $values[0];
+            $value = $values[1];
+            if($count == $layout['dname'])
+            {
+              $count = $key;
+              $found = true;
+              break;
+            }
+            $count ++;
           }
-          $count ++;
-        }
 
-        if ( $found )
-        {
-          $query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
-          $name  = mysql_fetch_array(mysql_query($query));
-          $name  = stripslashes($name['value']);
+          if ( $found )
+          {
+            $query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
+            //$name = $query;
+            $_name  = mysql_fetch_array(mysql_query($query));
+            //$name = print_r($_name, true);
+            //print_r($_name);
+            if ( $_name )
+            {
+              $name  = stripslashes($_name['value']);
+              break;
+            }
+          }
+
+          if ( ! $name )
+            $name = "[empty]";
         } 
-        else 
+
+        if ( ! $name )
           $name = "Add matching field first";
       }     
       else 
@@ -1081,7 +1175,7 @@ function wpfx_peeklayout()
 
   $layout = wpfx_readlayout($id);
 
-  $file = __DIR__ . '/forms/' . $layout['file'];
+  $file = FPROPDF_FORMS_DIR . $layout['file'];
   if ( defined('FPROPDF_IS_DATA_SUBMITTING') )
     $file = $currentFile;
 
@@ -1213,7 +1307,7 @@ function wpfx_killlayout()
 // Enqueue admin styles and scripts
 function wpfx_init()
 {
-  wp_register_script( 'wpfx-script', plugins_url('/res/script.js', __FILE__) );
+  wp_register_script( 'wpfx-script', plugins_url('/res/script.js', __FILE__), array(), @filemtime( __DIR__ . '/res/script.js' ) );
   wp_register_style ( 'wpfx-style',  plugins_url('/res/style.css', __FILE__) );
 
   wp_enqueue_style ( 'wpfx-style'  );
@@ -1283,7 +1377,7 @@ function wpfx_fpropdf_remove_pdf()
   // Check if filename does not contain slashes
   if ( preg_match('/\//', $file) )
     die('Wrong filename');
-  @unlink( __DIR__ . '/forms/' . $file );
+  @unlink( FPROPDF_FORMS_DIR . $file );
   die();
 }
 
@@ -1324,4 +1418,64 @@ function wpfx_preview_pdf()
   exit;
 }
 
+// Email Notifications
+
+add_filter('frm_notification_attachment', 'add_my_attachment', 10, 3);
+function add_my_attachment($attachments, $form, $args)
+{
+  $form_id = $form->id;
+  $form_key = $form->form_key;
+  $res = mysql_query('SELECT * FROM wp_fxlayouts WHERE form = \''.$form_id.'\' AND add_att = 1');
+  if ( ! mysql_num_rows($res) ) return $attachments;
+
+  $layout = mysql_fetch_array( $res );
+
+  $layout = $layout['ID'];
+  $dataset = $args['entry']->id;
+
+  define('FPROPDF_NO_HEADERS', true);
+
+  $__POST = $_POST;
+  $__GET = $_GET;
+  $__REQUEST = $_REQUEST;
+
+  $_GET['form'] = $form_key;
+  $_GET['layout'] = $layout + 9;
+  $_GET['dataset'] = $dataset;
+
+  //print_r($_GET); exit;
+
+  if ( !defined( 'FPROPDF_CONTENT' ) )
+  {
+    ob_start();
+    include __DIR__ . '/download.php';
+    ob_get_clean();
+  }
+
+  $data = FPROPDF_CONTENT;
+  //var_dump($data); exit;
+
+  $_POST = $__POST;
+  $_GET = $__GET;
+  $_REQUEST = $__REQUEST;
+
+  $filename = FPROPDF_FILENAME;
+
+  if ( defined('FPROPDF_GEN_ERROR') )
+  {
+    $filename = "error.txt";
+    if ( FPROPDF_GEN_ERROR )
+      $data = FPROPDF_GEN_ERROR;
+  }
+
+  $tmp = __DIR__ . '/fields/' . $filename;
+  file_put_contents( $tmp, $data );
+
+  //echo $tmp; exit;
+
+  $attachments[] = $tmp;
+  return $attachments;
+}
+
+// Shortcode
 include_once __DIR__ . '/formidable-shortcode.php';

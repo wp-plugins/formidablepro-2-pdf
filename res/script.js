@@ -62,15 +62,18 @@ function onLayoutChange()
                         jQuery('#loader').hide();
                         jQuery('.layout_builder').show();
                         jQuery('#wpfx_clname').val(data.name);
-
+//console.log(data);
                         jQuery("#wpfx_clfile [value = '" + data.file + "']").attr("selected", "selected");
                         jQuery("#wpfx_layoutvis [value = '" + data.visible + "']").attr("selected", "selected");
+                        jQuery("#wpfx_add_att [value = '" + data.add_att + "']").attr("selected", "selected");
                         jQuery("#wpfx_clform [value = '" + data.form + "']").attr("selected", "selected");
 
                         jQuery('#clbody').empty();
 
-                        jQuery.each(data.data, function(i, item)
+                        jQuery.each(data.data, function(index, _item)
                         {
+                          var i = _item[ 0 ];
+                          var item = _item[ 1 ];
                             //var row = jQuery("<tr><td><input name = 'clname' type = 'radio' class = 'radioname' /></td><td><input name = 'clfrom[]' value = '" + i + "' /></td><td id = 'maps'>&raquo;&raquo;</td><td><input name = 'clto[]' value = '" + item + "' /></td><td id = 'delete' title='Delete this row'>&times;</td>").on('click', '#delete', function() {  jQuery(this).closest ('tr').remove (); } );
                             //
 
@@ -113,13 +116,14 @@ function onLayoutChange()
                               date: 'Date MM/DD/YY',
                               curDate: 'Current Date MM/DD/YY',
                               capitalize: 'Capitalize',
-                              returnToComma: 'Carriage return to comma'
+                              returnToComma: 'Carriage return to comma',
+                              signature: 'Signature'
                             };
                             var options2 = "";
                             for ( var key2 in formats2 )
                             {
                               var selected2 = "";
-                              if ( data.formats[item+''] == key2+'' )
+                              if ( data.formats[index][1] == key2+'' )
                                 selected2 = ' selected="selected"';
                               options2 += '<option value="'+key2+'"'+selected2+'>'+formats2[key2]+'</option>';
                             }
@@ -353,6 +357,11 @@ jQuery(document).ready(function()
                     type: 'hidden',
                     id: 'wpfx_layout_visibility',
                     name: 'wpfx_layout_visibility'}).val(jQuery('#wpfx_layoutvis :selected').val()).appendTo('#wpfx_layout_form');
+
+                //jQuery('<input>').attr({
+                    //type: 'hidden',
+                    //id: 'wpfx_add_att2',
+                    //name: 'wpfx_add_att'}).val(jQuery('#wpfx_add_att :selected').val()).appendTo('#wpfx_layout_form');
 
                 jQuery('<input>').attr({
                     type: 'hidden',
