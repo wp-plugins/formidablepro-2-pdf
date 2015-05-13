@@ -1,11 +1,11 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.4
+ * Version: 1.6.0.5
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
- * Author URI: mailto:alexandre67fr@gmail.com
+ * Author URI: http://www.formidablepro2pdf.com/
  */
 
 if ( !defined('ABSPATH') )
