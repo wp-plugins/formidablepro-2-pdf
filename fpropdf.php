@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.5
+ * Version: 1.6.0.6
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -12,6 +12,8 @@ if ( !defined('ABSPATH') )
   exit;
 
 
+
+@ini_set('display_errors', 'off');
 
 $upload_dir = wp_upload_dir();
 define('FPROPDF_FORMS_DIR', $upload_dir['basedir'] . '/fpropdf-forms/');
@@ -405,7 +407,7 @@ function wpfx_admin()
   }
 
   // Handle user input
-  if ( $_POST["wpfx_submit"] )
+  if ( isset($_POST["wpfx_submit"]) and $_POST["wpfx_submit"] )
   {
     echo "<div align = 'center'>";
     echo "<form method = 'POST' action = '$wpfx_url"."generate.php' target='_blank' id = 'dform' >";
@@ -450,7 +452,7 @@ function wpfx_admin()
 
     unset ($_POST);
   } 
-  else if( $_POST['wpfx_savecl'] ) // Save a custom layout here
+  else if( isset($_POST['wpfx_savecl']) and $_POST['wpfx_savecl'] ) // Save a custom layout here
   {
     $layout = array();
 
@@ -1213,14 +1215,19 @@ function wpfx_peeklayout()
 
     global $wpdb;
 
-    $results = $wpdb->get_results($q = "SELECT fields.* FROM {$wpdb->prefix}frm_fields fields INNER JOIN {$wpdb->prefix}frm_forms forms ON ( forms.id = fields.form_id AND forms.form_key = '$form_key') ");
+    $results = $wpdb->get_results($q = "SELECT fields.* FROM {$wpdb->prefix}frm_fields fields INNER JOIN {$wpdb->prefix}frm_forms forms ON ( forms.id = fields.form_id AND forms.form_key = '$form_key') ORDER BY fields.field_order ASC ");
 
     foreach ( $results as $row )
     {
       $name = $row->name;
       $name = str_replace('&nbsp;', ' ', $name);
       $name = trim($name);
-      $fields[ $row->id ] = $name;
+      if ( $name == 'Section' ) continue;
+      if ( $name == 'End Section' ) continue;
+      if ( $row->type == 'divider' ) continue;
+      if ( $row->type == 'html' ) continue;
+      //$fields[ $row->id ] = "[" . $row->id . "] " . $name;
+      $fields[] = array( $row->id, "[" . $row->id . "] " . $name );
     }
 
     if ( !count($fields) )

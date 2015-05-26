@@ -99,7 +99,9 @@ function onLayoutChange()
                             {
 
                               options = "";
-                              jQuery.each(data.fields1, function (key, field) {
+                              jQuery.each(data.fields1, function (index, _field) {
+                                var key = _field[0];
+                                var field = _field[1];
                                 selected = "";
                                 if ( i+'' == key+'' )
                                   selected = ' selected="selected"';
