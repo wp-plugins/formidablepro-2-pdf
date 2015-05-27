@@ -48,20 +48,21 @@ function onLayoutChange()
                     {  
     if(jQuery('#wpfx_layout :selected').val() == "3") 
     {
-      jQuery('#clnewmap, [type="reset"], #remvcl, .cltable').hide();
+      jQuery('#clnewmap, [type="reset"], #remvcl, .cltable, #dupcl').hide();
       jQuery('#clbody').html('<tr><td><input name="clname" type="radio" class="radioname" value="name_0"></td><td><input name="clfrom[]"></td><td id="maps">»»</td><td><input name="clto[]"></td><td id="delete">×</td></tr>');
       jQuery('#savecl').val('Create Field Map');
 
     }
     else
     {
-      jQuery('#clnewmap, [type="reset"], #remvcl, .cltable').show();
+      jQuery('#clnewmap, [type="reset"], #remvcl, #dupcl, .cltable').show();
       jQuery('#clbody').html('');
       jQuery('#savecl').val('Save Field Map');
     }
                         jQuery('#loader').hide();
                         jQuery('.layout_builder').show();
                         jQuery('#wpfx_clname').val(data.name);
+                        jQuery('#wpfx_password').val(data.passwd);
 //console.log(data);
                         jQuery("#wpfx_clfile [value = '" + data.file + "']").attr("selected", "selected");
                         jQuery("#wpfx_layoutvis [value = '" + data.visible + "']").attr("selected", "selected");
@@ -326,6 +327,23 @@ jQuery(document).ready(function()
                         } });
         }
         }
+    });
+
+    jQuery('#dupcl').click(function()
+    {
+      var layout_name = jQuery('#wpfx_clname').val();
+      var btn = jQuery(this);
+      btn.prop('disabled', true);
+      btn.val('Please wait...');
+                jQuery.ajax({dataType: "json", url: ajaxurl, type: "POST",
+                        data:
+                        {
+                            'wpfx_layout' : jQuery('#wpfx_layout :selected').val(),
+                            'action'      : 'wpfx_dup_layout'
+                        }, success: function(data)
+                        {
+                            location.reload();
+                        } });
     });
 
     jQuery('#savecl').click(function()
