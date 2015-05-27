@@ -335,7 +335,7 @@ jQuery(document).ready(function()
       var btn = jQuery(this);
       btn.prop('disabled', true);
       btn.val('Please wait...');
-                jQuery.ajax({dataType: "json", url: ajaxurl, type: "POST",
+                jQuery.ajax({url: ajaxurl, type: "POST",
                         data:
                         {
                             'wpfx_layout' : jQuery('#wpfx_layout :selected').val(),
