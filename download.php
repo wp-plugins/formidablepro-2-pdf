@@ -43,6 +43,9 @@ if ( preg_match("/<input type = 'hidden' name = 'actual'  value = '([^']+)' /", 
 if ( preg_match("/<input type = 'hidden' name = 'lock' value = '([^']+)' /", $html, $m) )
   $_POST['lock'] = $m[1];
 
+if ( preg_match("/<input type = 'hidden' name = 'passwd' value = \"([^\"]+)\" /", $html, $m) )
+  $_POST['passwd'] = htmlspecialchars_decode( $m[1] );
+
 if ( preg_match("/<input type = 'hidden' name = 'filename' value = '([^']+)' /", $html, $m) )
   $_POST['filename'] = $m[1];
 

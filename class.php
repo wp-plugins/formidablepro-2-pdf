@@ -188,7 +188,12 @@ class FDFMaker
 
     foreach ( $data as $dataKey => $value ) 
       $data[ $dataKey ][ 1 ] = stripslashes( $value[ 1 ] );
-      $data[ $dataKey ][ 1 ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), mb_convert_encoding($value[1], 'UTF-16BE'));
+      $encoded = $value[1];
+      if ( function_exists('mb_convert_encoding') )
+        $encoded = mb_convert_encoding( $encoded, 'UTF-16BE' );
+      elseif ( function_exists('iconv') )
+        $encoded = iconv( 'UTF-8', 'UTF-16BE', $encoded );
+      $data[ $dataKey ][ 1 ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), $encoded);
 
     // generate fields
     foreach($data as $values)

@@ -38,6 +38,15 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
   $actual2  = escapeshellarg( $_POST['actual2'] );
   $flatten = intval($_POST['lock']) ? 'flatten' : '';
 
+  if ( isset($_REQUEST['flatten']) and $_REQUEST['flatten'] )
+    $flatten = 'flatten';
+
+  if ( isset($_POST['passwd']) and $_POST['passwd'] )
+  {
+    $pass = escapeshellarg( stripslashes($_POST['passwd']) );
+    $flatten .= ' encrypt_40bit user_pw ' . $pass;
+  }
+
   $generated_filename = $_POST['filename'];
   $generated_filename = preg_replace('/[^a-zA-Z0-9\_\.\- ]+/', '_', $generated_filename);
   $generated_filename = preg_replace('/ +/', ' ', $generated_filename);
@@ -98,6 +107,7 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
       $post = array(
         'salt'   => FPROPDF_SALT,
         'form'   => $_GET['form'],
+        'passwd' => stripslashes( $_POST['passwd'] ),
         'site_url'   => site_url('/'),
         'site_title' => get_bloginfo('name'),
         'site_ip' => $_SERVER['SERVER_ADDR'],
