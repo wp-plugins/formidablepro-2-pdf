@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.6
+ * Version: 1.6.0.7
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -66,6 +66,7 @@ function fpropdf_myplugin_activate() {
     PRIMARY KEY (`ID`)
   )');
   $wpdb->query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  $wpdb->query("ALTER TABLE wp_fxlayouts ADD COLUMN passwd VARCHAR(255)");
   $wpdb->query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
   if ( ! get_option('fpropdf_licence') )
@@ -354,6 +355,8 @@ function wpfx_admin()
     }
     if ( ! function_exists('curl_init') )
       throw new Exception("your server has to have <code>Curl</code> extension installed and enabled for PDF generation.");
+    if ( ! function_exists('mb_convert_encoding') and ! function_exists('iconv') )
+      throw new Exception("your server has to have PHP <code>MB</code> or <code>iconv</code> extension installed and enabled for PDF generation.");
     if ( ! fpropdf_is_activated() or fpropdf_is_trial() )
     {
       if ( ! fpropdf_custom_command_exist('ls') )
@@ -444,6 +447,7 @@ function wpfx_admin()
     echo "<input type = 'hidden' name = 'desired' value = '$filledfm' />";
     echo "<input type = 'hidden' name = 'actual'  value = '$filename' />";
     echo "<input type = 'hidden' name = 'lock' value = '".$layout['visible']."' />";
+    echo "<input type = 'hidden' name = 'passwd' value = \"".htmlspecialchars($layout['passwd'])."\" />";
     echo "<input type = 'hidden' name = 'filename' value = '".esc_attr($layout['name'])."' />";
     echo "<input type = 'submit' value = 'Download' name = 'download' id = 'hideme' />";
     echo "</form>";
@@ -475,11 +479,12 @@ function wpfx_admin()
     $index = intval($index);
 
     $add_att = esc_sql( $_POST['wpfx_add_att'] );
+    $passwd = esc_sql( $_POST['wpfx_password'] );
 
     if(isset ($_POST['update']) && ($_POST['update'] == 'update'))
-      $r = wpfx_updatelayout(intval($_POST['wpfx_layout']) - 9, esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att);
+      $r = wpfx_updatelayout(intval($_POST['wpfx_layout']) - 9, esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att, $passwd);
     else 
-      $r = wpfx_writelayout( esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att);
+      $r = wpfx_writelayout( esc_sql( $_POST['wpfx_clname'] ), base64_decode(urldecode($_POST['wpfx_clfile'])), intval($_POST['wpfx_layout_visibility']), esc_sql( $_POST['wpfx_clform'] ), $index, $layout, $formats, $add_att, $passwd);
 
     if ( $r )
       echo '<div class="updated" style="margin-left: 0;"><p>Layout has been saved!</p></div>';
@@ -909,6 +914,8 @@ function wpfx_admin()
   else
     echo "<td><select id = 'wpfx_add_att' name='wpfx_add_att' disabled='disabled'><option value = '0'>No</option></select></td></tr>";
 
+  echo "<tr><td>PDF password <i>(leave empty if password shouldn't be set)</i>:</td><td><input name = 'wpfx_password' id = 'wpfx_password' /></td></tr>";
+
   // now create dynamic list
   echo "<tr><td colspan = '2'><table class = 'cltable'>";
   echo "<thead><tr>";
@@ -928,7 +935,10 @@ function wpfx_admin()
   echo "<td align = 'left'><input type = 'button' id = 'clnewmap' value = 'Map Another Field' class='button' />";
   echo "<input type = 'reset' value = 'Reset' class='button' /></td>";
   echo "<td align = 'center'><input type = 'submit' value = 'Save Field Map' class='button-primary' name = 'wpfx_savecl' id = 'savecl'/></td>";
-  echo "<td align = 'right'><input type = 'button' value = 'Delete Entire Field Map' class='button' id = 'remvcl'/></td></tr></table>";
+  echo "<td align = 'right'>
+    <input type = 'button' value = 'Duplicate this Field Map' class='button' id = 'dupcl'/>
+    <input type = 'button' value = 'Delete Entire Field Map' class='button' id = 'remvcl'/>
+  </td></tr></table>";
   echo "</td></tr></table></form>";
   echo "</div></div>";
   echo "</div>";
@@ -1002,6 +1012,7 @@ function wpfx_readlayout($id)
 
   return array(
     'name' => $result['name'], 
+    'passwd' => stripslashes($result['passwd']),
     'file' => $result['file'], 
     'visible' => $result['visible'], 
     'form' => $result['form'], 
@@ -1013,12 +1024,13 @@ function wpfx_readlayout($id)
 }
 
 
-function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats, $add_att)
+function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats, $add_att, $passwd)
 {
   global $wpdb;
 
-  $name = mysql_real_escape_string($name);
-  $file = mysql_real_escape_string($file);
+  //$name = mysql_real_escape_string($name);
+  //$file = mysql_real_escape_string($file);
+  //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
   $formats = serialize($formats);
 
@@ -1029,28 +1041,35 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
   $form = $form['id'];
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN passwd VARCHAR(255)");
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
-  $query = "INSERT INTO `wp_fxlayouts` (`name`, `file`, `visible`, `form`, `data`, `dname`, `created_at`, `formats`, `add_att`)
-    VALUES ('$name', '$file', $visible, $form, '$data', $index, NOW(), '$formats', '$add_att')";
+  $query = "INSERT INTO `wp_fxlayouts` (`name`, `file`, `visible`, `form`, `data`, `dname`, `created_at`, `formats`, `add_att`, `passwd`)
+    VALUES ('$name', '$file', $visible, $form, '$data', $index, NOW(), '$formats', '$add_att', '$passwd')";
 
   $_SESSION['new_layout'] = 1;
 
-  return mysql_query($query);
+  $res = mysql_query($query);
+
+  echo mysql_error(); echo $query; exit;
+
+  return $res;
 }
 
 @session_start();
 
-function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $formats, $add_att)
+function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $formats, $add_att, $passwd)
 {
   global $wpdb;
 
-  $name = mysql_real_escape_string($name);
-  $file = mysql_real_escape_string($file);
+  //$name = mysql_real_escape_string($name);
+  //$file = mysql_real_escape_string($file);
+  //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
   $formats = serialize($formats);
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
+  mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN passwd VARCHAR(255)");
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN add_att INT(3) UNSIGNED NOT NULL DEFAULT '0'");
 
   $query = "UPDATE `wp_fxlayouts` SET `name` = '$name',
@@ -1059,6 +1078,7 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
              `dname` = $index,
              `formats` = '$formats',
              `add_att` = '$add_att',
+             `passwd` = '$passwd',
              `created_at` = NOW() WHERE `ID` = $id";
 
   return mysql_query($query);
@@ -1311,6 +1331,21 @@ function wpfx_killlayout()
   die();
 }
 
+function wpfx_duplayout()
+{
+  global $wpdb;
+
+  // Convert to integers for security reasons
+  $id = intval($_POST['wpfx_layout']) - 9;
+
+  $layout = wpfx_readlayout( $id );
+  extract($layout);
+  $name .= ' (copy)';
+  wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats, $add_att, $passwd);
+
+  die();
+}
+
 // Enqueue admin styles and scripts
 function wpfx_init()
 {
@@ -1398,6 +1433,7 @@ add_action( 'admin_menu', 'wpfx_menu');
 add_action('wp_ajax_wpfx_get_dataset', 'wpfx_getdataset');
 add_action('wp_ajax_wpfx_get_layout',  'wpfx_peeklayout');
 add_action('wp_ajax_wpfx_del_layout',  'wpfx_killlayout');
+add_action('wp_ajax_wpfx_dup_layout',  'wpfx_duplayout');
 add_action('wp_ajax_wpfx_validate_fd', 'wpfx_validate_formidable');
 add_action('wp_ajax_fpropdf_remove_pdf', 'wpfx_fpropdf_remove_pdf');
 
@@ -1450,7 +1486,7 @@ function add_my_attachment($attachments, $form, $args)
   $_GET['layout'] = $layout + 9;
   $_GET['dataset'] = $dataset;
 
-  //print_r($_GET); exit;
+
 
   if ( !defined( 'FPROPDF_CONTENT' ) )
   {
