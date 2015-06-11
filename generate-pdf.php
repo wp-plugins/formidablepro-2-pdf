@@ -38,8 +38,13 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
   $actual2  = escapeshellarg( $_POST['actual2'] );
   $flatten = intval($_POST['lock']) ? 'flatten' : '';
 
-  if ( isset($_REQUEST['flatten']) and $_REQUEST['flatten'] )
-    $flatten = 'flatten';
+  if ( isset($_REQUEST['flattenOverride']) )
+  {
+    if ( $_REQUEST['flattenOverride'] == 'yes' )
+      $flatten = 'flatten';
+    if ( $_REQUEST['flattenOverride'] == 'no' )
+      $flatten = '';
+  }
 
   if ( isset($_POST['passwd']) and $_POST['passwd'] )
   {
@@ -108,6 +113,8 @@ if ( isset($_POST['desired']) and isset($_POST['actual']) )
         'salt'   => FPROPDF_SALT,
         'form'   => $_GET['form'],
         'passwd' => stripslashes( $_POST['passwd'] ),
+        'flatten' => $_POST['flatten'],
+        'flattenOverride' => $_REQUEST['flattenOverride'],
         'site_url'   => site_url('/'),
         'site_title' => get_bloginfo('name'),
         'site_ip' => $_SERVER['SERVER_ADDR'],
