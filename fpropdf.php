@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.9
+ * Version: 1.6.0.10
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -141,7 +141,6 @@ function wpfx_extract($layout, $id, $custom = false)
   // get data
   while($row = mysql_fetch_array($result))
   {
-    //print_r($row);
     //$data [ $row['id'] ] = $row['value'];
     $key = $row['id'];
     $val = $row['value'];
@@ -251,7 +250,7 @@ function fpropdf_check_code($code, $update=0)
       update_option('fpropdf_licence', $code);
     return true;
   }
-  update_option('fpropdf_licence', '');
+  update_option( 'fpropdf_licence', 'TRIAL' . strtoupper(FPROPDF_SALT) );
   throw new Exception('This licence code is not valid.');
   return false;
 }
@@ -466,7 +465,7 @@ function wpfx_admin()
     {
       $to = $_POST['clto'][$index];
 
-      $formats[] = array( $to, $_POST['format'][ $index ] );
+      $formats[] = array( $to, $_POST['format'][ $index ], $_POST['repeatable_field'][ $index ] );
 
       if( strlen(trim($value)) && strlen(trim($to)) )
         $layout[] = array( $value, $to );
@@ -719,7 +718,7 @@ function wpfx_admin()
     if ( fpropdf_is_trial() )
       echo "<div class='updated'><p>You can activate only 1 form on this website. Please <a href='#' class='button-primary fpropdf-activate'>upgrade</a> if you want to use more forms.</p></div>";
     else
-      echo "<div class='updated'><p>Your licence key is <strong>".$code."</strong>. <br /> With this activation code, you can register up to <strong>".$result->licence->sites."</strong> site".($result->licence->sites == 1 ? '' : 's')." and up to <strong>".$result->licence->forms."</strong> form".($result->licence->forms == 1 ? '' : 's').". <a href='?page=fpdf&action=deactivatekey'>Click here to deactivate this key.</a> </p><p>You have <strong>".$result->sites_left."</strong> site".($result->licence->sites_left == 1 ? '' : 's')." and <strong>".$result->forms_left."</strong> form".($result->licence->forms_left == 1 ? '' : 's')." left.</p></div>";
+      echo "<div class='updated'><p>Your licence key is <strong>".$code."</strong>. <br /> It is valid until ".date('m/d/Y', strtotime( $result->licence->expires_on ))." <br />With this activation code, you can register up to <strong>".$result->licence->sites."</strong> site".($result->licence->sites == 1 ? '' : 's')." and up to <strong>".$result->licence->forms."</strong> form".($result->licence->forms == 1 ? '' : 's').". <a href='?page=fpdf&action=deactivatekey'>Click here to deactivate this key.</a> </p><p>You have <strong>".$result->sites_left."</strong> site".($result->licence->sites_left == 1 ? '' : 's')." and <strong>".$result->forms_left."</strong> form".($result->licence->forms_left == 1 ? '' : 's')." left.</p></div>";
 
     echo '<ol class="fpropdf-sites">';
     if ( ! count($result->sites) )
@@ -768,6 +767,9 @@ function wpfx_admin()
     echo '</div>';
     return;
   }
+
+  if ( function_exists('add_thickbox') )
+    add_thickbox();
 
   echo "<form method = 'POST' id='frm-bg' data-activated='".intval(!fpropdf_is_trial())."'>";
   echo "<table>";
@@ -1244,7 +1246,13 @@ function wpfx_peeklayout()
       $name = trim($name);
       if ( $name == 'Section' ) continue;
       if ( $name == 'End Section' ) continue;
-      if ( $row->type == 'divider' ) continue;
+      if ( $row->type == 'divider' )
+      {
+        $data = $row->field_options;
+        $data = @unserialize( $data );
+        if ( ! $data['repeat'] )
+          continue;
+      }
       if ( $row->type == 'html' ) continue;
       //$fields[ $row->id ] = "[" . $row->id . "] " . $name;
       $fields[] = array( $row->id, "[" . $row->id . "] " . $name );
@@ -1457,6 +1465,13 @@ add_action('wp_ajax_nopriv_wpfx_preview_pdf',  'wpfx_preview_pdf');
 
 function wpfx_preview_pdf()
 {
+  if ( isset( $_GET['TB_iframe'] ) and $_GET['TB_iframe'] )
+  {
+    unset( $_GET['TB_iframe'] );
+    $src = '?' . http_build_query( $_GET );
+    echo '<img src="'.$src.'" />';
+    exit;
+  }
   include __DIR__ . '/preview.php';
   exit;
 }

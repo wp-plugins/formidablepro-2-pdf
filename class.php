@@ -145,6 +145,41 @@ class FDFMaker
               $v = date('m/d/y');
               break;
 
+            case 'repeatable':
+              $v = @unserialize($v);
+              $vals = array();
+              try
+              {
+                if ( !$v or !is_array($v) )
+                  throw new Exception('Not an array');
+
+                foreach ( $v as $id )
+                {
+
+                  $string = $_format[ 2 ];
+
+                  global $wpdb;
+                  $query  = "SELECT * FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = " . intval( $id );
+                  $result = mysql_query($query);
+                  if ( ! $query ) 
+                    die( 'Mysql error: ' . $query . ' : ' . mysql_error() );
+                  while($row = mysql_fetch_array($result))
+                  {
+                    //$data [ $row['id'] ] = $row['value'];
+                    $key = $row['field_id'];
+                    $val = $row['meta_value'];
+                    $string = str_replace('['.$key.']', $val, $string);
+                  }
+
+                  $vals[] = $string;
+                }
+              }
+              catch (Exception $e)                
+              {
+              }
+              $v = implode('', $vals);
+              break;
+
             case 'tel':
               $v2 = preg_replace('/[^0-9]+/', '', $v);
               $v2 = intval($v2);
