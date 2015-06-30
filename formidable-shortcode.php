@@ -29,6 +29,11 @@ add_action( 'wp_enqueue_scripts', 'formidable_shortcode_name_scripts' );
 function formidable_shortcode_download($atts = array())
 {
   $text = $atts['title'];
+  if ( isset( $atts['flatten'] ) )
+  {
+    $atts['flattenOverride'] = $atts['flatten'];
+    unset($atts['flatten']);
+  }
   if ( ! $text )
     $text = 'Download'; 
   $class = $atts['class'];
