@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.11
+ * Version: 1.6.0.12
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -1357,6 +1357,10 @@ function wpfx_duplayout()
 // Enqueue admin styles and scripts
 function wpfx_init()
 {
+
+  if ( $_GET['page'] != 'fpdf' )
+    return;
+
   wp_register_script( 'wpfx-script', plugins_url('/res/script.js', __FILE__), array(), @filemtime( __DIR__ . '/res/script.js' ) );
   wp_register_style ( 'wpfx-style',  plugins_url('/res/style.css', __FILE__) );
 

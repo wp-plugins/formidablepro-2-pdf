@@ -70,6 +70,10 @@ Yes, the plugin works with WordPress Multisite – site limits still apply.
 
 == Changelog ==
 
+= 1.6.0.12 =
+
+Bugfix for CSS conflict with Fusion Builder.
+
 = 1.6.0.11 =
 
 Added new formatting options for dates. Removed extra lines in multiline text fields on some servers.
