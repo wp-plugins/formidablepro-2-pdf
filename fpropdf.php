@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.12
+ * Version: 1.6.0.13
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -138,12 +138,46 @@ function wpfx_extract($layout, $id, $custom = false)
 
   $result = mysql_query($query);
 
-  // get data
+  $rows = array();
   while($row = mysql_fetch_array($result))
+    $rows[] = $row;
+
+  $entry = FrmEntry::getOne($id, true);
+  $fields = FrmField::get_all_for_form( $entry->form_id, '', 'include' );
+
+
+  foreach ( $rows as $index => $row )
   {
-    //$data [ $row['id'] ] = $row['value'];
+    $query  = "SELECT `type` FROM `".$wpdb->prefix."frm_fields` WHERE `id` = " . intval( $row['id'] );
+    $data = @mysql_fetch_array( @mysql_query( $query ) );
+    if ( !$data ) continue;
+    if ( $data['type'] == 'data' )
+    {
+      foreach ( $fields as $field )
+      {
+        if ( $field->id != $row['id'] ) continue;
+        $embedded_field_id = ( $entry->form_id != $field->form_id ) ? 'form' . $field->form_id : 0;
+        $atts = array(
+          'type' => $field->type, 'post_id' => $entry->post_id,
+          'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
+          'embedded_field_id' => $embedded_field_id,
+        );
+        $rows[ $index ]['value'] = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+      }
+
+      //$query  = "SELECT `meta_value` FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".intval( $row['value'] ) . ' ORDER BY id DESC LIMIT 1';
+      //$data2 = @mysql_fetch_array( @mysql_query( $query ) );
+      //if ( !$data2 ) continue;
+      //$rows[ $index ]['value'] = $data2['meta_value'];
+    }
+  }
+
+  // get data
+  foreach ( $rows as $row )
+  {
     $key = $row['id'];
     $val = $row['value'];
+
     $found = false;
     foreach ( $data as $dataKey => $values )
       if ( $values[ 0 ] == $key )
@@ -1151,16 +1185,47 @@ function wpfx_getdataset()
 
           if ( $found )
           {
+            // Old code
+            //$query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
+            //$_name  = mysql_fetch_array(mysql_query($query));
+            //if ( $_name )
+            //{
+              //$name  = stripslashes($_name['value']);
+              //break;
+            //}
+
+            //print_r($row); print_r($count); exit;
+
+            $entry = FrmEntry::getOne($row['id'], true);
+            $fields = FrmField::get_all_for_form( $entry->form_id, '', 'include' );
+
+            $found2 = false;
+            foreach ( $fields as $field )
+            {
+              if ( $field->id != $count ) continue;
+              $embedded_field_id = ( $entry->form_id != $field->form_id ) ? 'form' . $field->form_id : 0;
+              $atts = array(
+                'type' => $field->type, 'post_id' => $entry->post_id,
+                'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
+                'embedded_field_id' => $embedded_field_id,
+              );
+              $name = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+              if ( $name )
+                $found2 = true;
+              break;
+            }
+
+            if ( $found2 ) continue;
+
+
             $query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
-            //$name = $query;
             $_name  = mysql_fetch_array(mysql_query($query));
-            //$name = print_r($_name, true);
-            //print_r($_name);
             if ( $_name )
             {
               $name  = stripslashes($_name['value']);
               break;
             }
+
           }
 
           if ( ! $name )
