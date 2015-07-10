@@ -126,7 +126,6 @@ class FDFMaker
 
           $v = $values[ 1 ];
 
-
           switch ( $format )
           {
 
@@ -145,6 +144,53 @@ class FDFMaker
               $v = date('m/d/y');
               break;
 
+            case 'curDate2':
+              $v = date('d/m/Y');
+              break;
+
+            case 'curDate3':
+              $v = date('m/d/Y');
+              break;
+
+            case 'curDate4':
+              $v = date('Y/m/d');
+              break;
+
+            case 'repeatable':
+              $v = @unserialize($v);
+              $vals = array();
+              try
+              {
+                if ( !$v or !is_array($v) )
+                  throw new Exception('Not an array');
+
+                foreach ( $v as $id )
+                {
+
+                  $string = $_format[ 2 ];
+
+                  global $wpdb;
+                  $query  = "SELECT * FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = " . intval( $id );
+                  $result = mysql_query($query);
+                  if ( ! $query ) 
+                    die( 'Mysql error: ' . $query . ' : ' . mysql_error() );
+                  while($row = mysql_fetch_array($result))
+                  {
+                    //$data [ $row['id'] ] = $row['value'];
+                    $key = $row['field_id'];
+                    $val = $row['meta_value'];
+                    $string = str_replace('['.$key.']', $val, $string);
+                  }
+
+                  $vals[] = $string;
+                }
+              }
+              catch (Exception $e)                
+              {
+              }
+              $v = implode('', $vals);
+              break;
+
             case 'tel':
               $v2 = preg_replace('/[^0-9]+/', '', $v);
               $v2 = intval($v2);
@@ -155,13 +201,27 @@ class FDFMaker
 
             case 'date':
               if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
-              {
                 $v = $m[2] . '/' . $m[3] . '/' . substr($m[1], 2, 4);
-              }
               break;
 
+            case 'date2':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[3] . '/' . $m[2] . '/' . $m[1];
+              break;
+
+            case 'date3':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[2] . '/' . $m[3] . '/' . $m[1];
+              break;
+
+
+            case 'date4':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[1] . '/' . $m[2] . '/' . $m[3];
+              break;
+
+
             case 'returnToComma':
-              $v = str_replace("\r", "", $v);
               $v = str_replace("\n", ", ", $v);
               $v = preg_replace('/ +/', ' ', $v);
               $v = preg_replace('/\, +$/', '', $v);
@@ -169,6 +229,10 @@ class FDFMaker
 
             case 'capitalize':
               $v = preg_replace_callback('/(^[a-z]| [a-z])/u', 'fpropdf_custom_capitalize', $v);
+              break;
+
+            default:
+              $v = str_replace("\r", "", $v);
               break;
    
           }
