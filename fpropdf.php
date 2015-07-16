@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.13
+ * Version: 1.6.0.14
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -151,7 +151,7 @@ function wpfx_extract($layout, $id, $custom = false)
     $query  = "SELECT `type` FROM `".$wpdb->prefix."frm_fields` WHERE `id` = " . intval( $row['id'] );
     $data = @mysql_fetch_array( @mysql_query( $query ) );
     if ( !$data ) continue;
-    if ( $data['type'] == 'data' )
+    if ( ( $data['type'] == 'data' ) or ( $data['type'] == 'checkbox' ) )
     {
       foreach ( $fields as $field )
       {
@@ -306,6 +306,12 @@ function wpfx_admin()
 
   echo "<div class = '_first _left'>";
   echo "<h1>$wpfx_dsc</h1>";
+
+  if ( version_compare(PHP_VERSION, '5.3.0', '<') )
+  {
+    echo '<div class="error"><p>This plugin requires PHP version 5.3 or higher. Your version is '.PHP_VERSION.'. Please upgrade your PHP installation.</p></div>';
+    exit;
+  }
 
   if ( isset($_GET['action']) and ( $_GET['action'] == 'deactivatekey' ) )
   {
