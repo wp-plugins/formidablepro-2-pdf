@@ -103,6 +103,8 @@ class FDFMaker
     $fdf  = '%FDF-1.2'.$cr.'%'.chr(hexdec('e2')).chr(hexdec('e3')).chr(hexdec('cf')).chr(hexdec('d3')).$cr;
     $fdf .= '1 0 obj '.$cr.'<<'.$cr.'/FDF '.$cr.'<<'.$cr.'/Fields [';
 
+    //if ( isset( $_GET['testing'] ) ) { print_r($data); exit; }
+
     global $currentLayout;
     if ( $currentLayout )
     {
@@ -231,8 +233,24 @@ class FDFMaker
               $v = preg_replace_callback('/(^[a-z]| [a-z])/u', 'fpropdf_custom_capitalize', $v);
               break;
 
+
             default:
-              $v = str_replace("\r", "", $v);
+
+              if ( is_array($v) )
+              {
+                $_opts = @json_decode( $_format[ 3 ] );
+                if ( $_opts and is_array( $_opts ) and count($_opts) )
+                {
+                  $data[ $dataKey ][ 1 ] = true;
+                  foreach( $v as $_k => $_v )
+                    if ( !in_array( $_v, $_opts ) )
+                      unset( $v[ $_k ] );
+                }
+              }
+              else
+              {
+                $v = str_replace("\r", "", $v);
+              }
               break;
    
           }
@@ -250,30 +268,44 @@ class FDFMaker
       $currentLayout = false;
     }
 
-    foreach ( $data as $dataKey => $value ) 
-      $data[ $dataKey ][ 1 ] = stripslashes( $value[ 1 ] );
-      $encoded = $value[1];
-      if ( function_exists('mb_convert_encoding') )
-        $encoded = mb_convert_encoding( $encoded, 'UTF-16BE' );
-      elseif ( function_exists('iconv') )
-        $encoded = iconv( 'UTF-8', 'UTF-16BE', $encoded );
-      $data[ $dataKey ][ 1 ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), $encoded);
-
     // generate fields
     foreach($data as $values)
     {
       $index = $values[ 0 ];
       $value = $values[ 1 ];
 
-      $fdf .= $cr.'<<';
-      $fdf .= $cr.'/V ';
+      if ( !is_array($value) )
+        $_values = array( $value );
+      else
+      {
+        if ( $values[ 2 ] )
+          $_values = $value;
+        else
+          $_values = array( implode(', ', $value) );
+      }
 
-      if($value[0] == '/')
-        $fdf .= $value;
-      else $fdf .= '('.$value.')';
+      foreach ( $_values as $value )
+      {
 
-      $fdf .= $cr.'/T ('.$index.')';
-      $fdf .= $cr.'>> ';
+        $value = stripslashes( $value );
+        if ( function_exists('mb_convert_encoding') )
+          $value = mb_convert_encoding( $value, 'UTF-16BE' );
+        elseif ( function_exists('iconv') )
+          $value = iconv( 'UTF-8', 'UTF-16BE', $value );
+        $value = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), $value);
+
+        $fdf .= $cr.'<<';
+        $fdf .= $cr.'/V ';
+
+        if($value[0] == '/')
+          $fdf .= $value;
+        else $fdf .= '('.$value.')';
+
+        $fdf .= $cr.'/T ('.$index.')';
+        $fdf .= $cr.'>> ';
+
+      }
+
     }
 
     // make footer

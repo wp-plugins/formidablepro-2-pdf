@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.14
+ * Version: 1.6.0.15
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -162,7 +162,10 @@ function wpfx_extract($layout, $id, $custom = false)
           'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
           'embedded_field_id' => $embedded_field_id,
         );
-        $rows[ $index ]['value'] = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+
+        //if ( isset( $_GET['testing'] ) ) { print_r($entry); print_r($field); exit; }
+        //$rows[ $index ]['value'] = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+        $rows[ $index ]['value'] = $entry->metas[ $field->id ];
       }
 
       //$query  = "SELECT `meta_value` FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".intval( $row['value'] ) . ' ORDER BY id DESC LIMIT 1';
@@ -505,7 +508,8 @@ function wpfx_admin()
     {
       $to = $_POST['clto'][$index];
 
-      $formats[] = array( $to, $_POST['format'][ $index ], $_POST['repeatable_field'][ $index ] );
+      $formats[] = array( $to, $_POST['format'][ $index ], fpropdf_stripslashes( $_POST['repeatable_field'][ $index ] ), fpropdf_stripslashes( $_POST['checkbox_field'][ $index ] ) );
+
 
       if( strlen(trim($value)) && strlen(trim($to)) )
         $layout[] = array( $value, $to );
@@ -1074,7 +1078,7 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
   //$file = mysql_real_escape_string($file);
   //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
-  $formats = serialize($formats);
+  $formats = mysql_real_escape_string( serialize($formats) );
 
   $query = "SELECT `id` FROM `".$wpdb->prefix."frm_forms` WHERE `form_key` = '$form'";
 
@@ -1093,7 +1097,6 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
 
   $res = mysql_query($query);
 
-  //echo mysql_error(); echo $query; exit;
 
   return $res;
 }
@@ -1108,7 +1111,7 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
   //$file = mysql_real_escape_string($file);
   //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
-  $formats = serialize($formats);
+  $formats = mysql_real_escape_string( serialize($formats) );
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN passwd VARCHAR(255)");
@@ -1122,6 +1125,8 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
              `add_att` = '$add_att',
              `passwd` = '$passwd',
              `created_at` = NOW() WHERE `ID` = $id";
+
+  //echo $query; mysql_query($query); exit;
 
   return mysql_query($query);
 }
@@ -1216,6 +1221,9 @@ function wpfx_getdataset()
                 'embedded_field_id' => $embedded_field_id,
               );
               $name = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+
+
+
               if ( $name )
                 $found2 = true;
               break;
@@ -1282,6 +1290,7 @@ function wpfx_peeklayout()
 
   $layout['imagesBase'] = plugins_url( '', __FILE__ );
   $layout['images'] = array();
+  $layout['checkboxes'] = array();
 
   try
   {
@@ -1293,6 +1302,26 @@ function wpfx_peeklayout()
       throw new Exception('PDFTK returned no fields.');
     $fields = $m[1];
     $layout['fields2'] = $fields;
+
+    $data2 = explode('---', $fields_data);
+    foreach ($data2 as $_row)
+    {
+      $_id = false;
+      $options = array();
+      $_row = explode("\n", $_row);
+      foreach ( $_row as $_line )
+      {
+        //if ( isset( $_GET['testing'] ) ) { echo $_line; }
+        if ( preg_match('/FieldName: (.*)$/', $_line, $m) )
+          $id = $m[ 1 ];
+        if ( $id )
+          if ( preg_match('/FieldStateOption: (.*)$/', $_line, $m) )
+            $options[] = $m[ 1 ];
+      }
+      if ( $id and count( $options ) )
+        $layout['checkboxes'][ $id ] = json_encode( $options );
+    }
+    //if ( isset( $_GET['testing'] ) ) {echo 'ok'; exit; }
   }
   catch (Exception $e)
   {
@@ -1317,6 +1346,20 @@ function wpfx_peeklayout()
       $name = trim($name);
       if ( $name == 'Section' ) continue;
       if ( $name == 'End Section' ) continue;
+      if ( $row->type == 'checkbox' )
+      {
+        $checkboxes = array();
+        $_opts = @unserialize( $row->options );
+        if ( $_opts and is_array( $_opts ) )
+          foreach ( $_opts as $_opt )
+          {
+            //print_r($_opt); exit;
+            if ( is_array( $_opt ) )
+              $_opt = $_opt['value'];
+            $checkboxes[] = $_opt;
+          }
+        //$layout['checkboxes'][ $row->id ] = $checkboxes;
+      }
       if ( $row->type == 'divider' )
       {
         $data = $row->field_options;
@@ -1612,3 +1655,9 @@ function add_my_attachment($attachments, $form, $args)
 
 // Shortcode
 include_once __DIR__ . '/formidable-shortcode.php';
+
+function fpropdf_stripslashes($str)
+{
+        return stripslashes($str);
+        return get_magic_quotes_gpc() ? stripslashes($str) : $str;
+}

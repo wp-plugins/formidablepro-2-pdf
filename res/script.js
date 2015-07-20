@@ -113,6 +113,9 @@ function onLayoutChange()
 
       }
 
+      if ( !data.formats[ index ] )
+        data.formats[ index ] = new Array();
+
       var formats2 = {
         none: '(no formatting)',
         tel: 'Telephone',
@@ -128,6 +131,7 @@ function onLayoutChange()
         returnToComma: 'Carriage return to comma',
         signature: 'Signature',
         repeatable: 'Repeatable'
+        //checkbox: 'Multiple Checkboxes'
       };
       var options2 = "";
       var rep = "";
@@ -143,12 +147,17 @@ function onLayoutChange()
           if ( !rep ) rep = "";
         }
       }
-      format2 = "<td><select name='format[]'>"+options2+"</select><textarea name='repeatable_field[]' style='display: none;' placeholder='Repeatable formatting...'></textarea></td>";
+
+      var list_id = 'list_' + ( new Date() ).getTime() + Math.round( Math.random() * 10000 );
+
+      format2 = "<td><select name='format[]'>"+options2+"</select><textarea name='repeatable_field[]' style='display: none;' placeholder='Repeatable formatting...'></textarea><div class='checkbox_opts' style='text-align: left;'>Please enter the export value of this checkbox:<br /><input name='checkbox_field[]' value='' list='"+list_id+"' /><datalist id='"+list_id+"'></datalist></div></td>";
+
 
       if ( ! parseInt( jQuery('#clbody').data('activated') ) )
         format2 = "";
 
       row = jQuery("<tr><td><input name = 'clname' type = 'radio' class = 'radioname' /></td><td>"+select1+"</td><td id = 'maps'>&raquo;&raquo;</td><td>"+select2+"</td>"+format2+"<td id = 'delete' title='Delete this row'>&times;</td>").on('click', '#delete', function() {  jQuery(this).closest ('tr').remove (); } );
+
       var txtarea = row.find('textarea');
       txtarea.val( rep );
       row.find('[name="format[]"]').change(function () {
@@ -157,6 +166,33 @@ function onLayoutChange()
         else
           jQuery(this).next().hide();
       }).trigger('change');
+
+      row.find('[name="clto[]"]').change(function () {
+        row.find('[name="format[]"]').trigger('change');
+      });
+
+      row.find('.checkbox_opts input').val( data.formats[ index ][ 3 ] );
+      row.find('[name="format[]"]').change(function () {
+        var _f = jQuery(this).parent().find('.checkbox_opts');
+        //var the_id = jQuery(this).parent().parent().find('[name="clfrom[]"]').find(':selected').val();
+        var the_id = jQuery(this).parent().parent().find('[name="clto[]"]').find(':selected').val();
+        row.find('.checkbox_opts input').val( data.checkboxes[ the_id ] );
+        //if ( jQuery(this).find(':selected').val() == 'checkbox' )
+        //{
+          //if ( data.checkboxes[ the_id ] )
+            //jQuery.each( data.checkboxes[ the_id ], function ( index9, val ) {
+              //var _o = jQuery('<option />');
+              //_o.attr('value', val);
+              //jQuery('#' + list_id).append(_o);
+            //});
+
+          //_f.show();
+        //}
+        //else
+          //_f.hide();
+        _f.hide();
+      }).trigger('change');
+
 
       jQuery('#clbody').append(row);
 
