@@ -107,13 +107,20 @@ jQuery(document).ready ($) ->
     img.insertAfter select
     base = select.data "base"
     src = select.find('option:selected').data "src"
-    src = "admin-ajax.php?page=fpdf&action=wpfx_preview_pdf&file=" + encodeURIComponent( $('#wpfx_clfile').val() ) + "&field=" + encodeURIComponent( select.val() ) + "&form=" + encodeURIComponent( $('#wpfx_clform').val() )
-    img.attr 'src', src
+    src = "admin-ajax.php?page=fpdf&action=wpfx_preview_pdf&file=" + encodeURIComponent( $('#wpfx_clfile').val() ) + "&field=" + encodeURIComponent( select.val() ) + "&form=" + encodeURIComponent( $('#wpfx_clform').val() ) + "&ext=.png"
     #if base.length and src.length
       #img.attr 'src', "#{base}#{src}"
     #else
       #img.remove()
-    img.wrap "<a href='#{src}' target='_blank' />"
+    img.wrap "<a href='#{src}&TB_iframe=true' target='_blank' class='thickbox' />"
+    img.load ->
+      img.css 'max-width', 'initial'
+      a = img.parent()
+      href = a.attr 'href'
+      href += "&width=" + ( img.width() - ( 626 - 597 ) ) + "&height=" + (img.height() - ( 200 - 188  ))
+      a.attr 'href', href
+      img.css 'max-width', ''
+    img.attr 'src', src
 
   $(document).on 'click', '.upl-new-pdf', ->
     overlay = $ '<div />'

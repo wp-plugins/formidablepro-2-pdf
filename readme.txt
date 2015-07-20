@@ -4,7 +4,7 @@ Donate link: http://formidablepro2pdf.com/
 Tags: fpropdf, pdf, generation, pdftk, formidable, forms
 Requires at least: 3.0.1
 Tested up to: 4.2.2
-Stable tag: 1.6.0.7
+Stable tag: 1.6.0.15
 License: GPLv2 or later
 License URI: http://www.gnu.org/licenses/gpl-2.0.html
 
@@ -50,6 +50,8 @@ You'll also need to have PHP `MB` or `iconv` extensions installed. They are usua
 
 If you want, you can purchase the plugin. In this case, no additional software installation is need.
 
+PHP version should be at least 5.3.
+
 = Does the plugin create PDF files? =
 
 Not at this time. Currently the plugin populates pre-made PDF form fields with mapped data from Formidable Form and FormidablePro form fields.
@@ -69,6 +71,38 @@ Yes, the plugin works with WordPress Multisite – site limits still apply.
 1. Plugin settings page.
 
 == Changelog ==
+
+= 1.6.0.15 =
+
+Better support for multiple checkboxes.
+
+= 1.6.0.14 =
+
+Added alert for PHP version, bugfixes.
+
+= 1.6.0.13 =
+
+Added support for dynamic Formidable fields.
+
+= 1.6.0.12 =
+
+Bugfix for CSS conflict with Fusion Builder.
+
+= 1.6.0.11 =
+
+Added new formatting options for dates. Removed extra lines in multiline text fields on some servers.
+
+= 1.6.0.10 =
+
+Add repeatable sections support.
+
+= 1.6.0.9 =
+
+Fix bug when saving layout.
+
+= 1.6.0.8 =
+
+Missing files bugfix.
 
 = 1.6.0.7 =
 
