@@ -72,6 +72,7 @@ try
       'form'   => $_GET['form'],
     );
     $post['pdf_file'] = '@' . realpath( $file );
+    $post['pdf_file_string'] = base64_encode( @file_get_contents( realpath( $file ) ) );
 
     $curl = curl_init();
     curl_setopt_array($curl, array(
