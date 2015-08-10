@@ -98,9 +98,18 @@
       img.insertAfter(select);
       base = select.data("base");
       src = select.find('option:selected').data("src");
-      src = "admin-ajax.php?page=fpdf&action=wpfx_preview_pdf&file=" + encodeURIComponent($('#wpfx_clfile').val()) + "&field=" + encodeURIComponent(select.val()) + "&form=" + encodeURIComponent($('#wpfx_clform').val());
-      img.attr('src', src);
-      return img.wrap("<a href='" + src + "' target='_blank' />");
+      src = "admin-ajax.php?page=fpdf&action=wpfx_preview_pdf&file=" + encodeURIComponent($('#wpfx_clfile').val()) + "&field=" + encodeURIComponent(select.val()) + "&form=" + encodeURIComponent($('#wpfx_clform').val()) + "&ext=.png";
+      img.wrap("<a href='" + src + "&TB_iframe=true' target='_blank' class='thickbox' />");
+      img.load(function() {
+        var a, href;
+        img.css('max-width', 'initial');
+        a = img.parent();
+        href = a.attr('href');
+        href += "&width=" + (img.width() - (626 - 597)) + "&height=" + (img.height() - (200 - 188));
+        a.attr('href', href);
+        return img.css('max-width', '');
+      });
+      return img.attr('src', src);
     });
     $(document).on('click', '.upl-new-pdf', function() {
       var form, overlay;

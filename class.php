@@ -103,6 +103,8 @@ class FDFMaker
     $fdf  = '%FDF-1.2'.$cr.'%'.chr(hexdec('e2')).chr(hexdec('e3')).chr(hexdec('cf')).chr(hexdec('d3')).$cr;
     $fdf .= '1 0 obj '.$cr.'<<'.$cr.'/FDF '.$cr.'<<'.$cr.'/Fields [';
 
+    //if ( isset( $_GET['testing'] ) ) { print_r($data); exit; }
+
     global $currentLayout;
     if ( $currentLayout )
     {
@@ -126,7 +128,6 @@ class FDFMaker
 
           $v = $values[ 1 ];
 
-
           switch ( $format )
           {
 
@@ -145,6 +146,53 @@ class FDFMaker
               $v = date('m/d/y');
               break;
 
+            case 'curDate2':
+              $v = date('d/m/Y');
+              break;
+
+            case 'curDate3':
+              $v = date('m/d/Y');
+              break;
+
+            case 'curDate4':
+              $v = date('Y/m/d');
+              break;
+
+            case 'repeatable':
+              $v = @unserialize($v);
+              $vals = array();
+              try
+              {
+                if ( !$v or !is_array($v) )
+                  throw new Exception('Not an array');
+
+                foreach ( $v as $id )
+                {
+
+                  $string = $_format[ 2 ];
+
+                  global $wpdb;
+                  $query  = "SELECT * FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = " . intval( $id );
+                  $result = mysql_query($query);
+                  if ( ! $query ) 
+                    die( 'Mysql error: ' . $query . ' : ' . mysql_error() );
+                  while($row = mysql_fetch_array($result))
+                  {
+                    //$data [ $row['id'] ] = $row['value'];
+                    $key = $row['field_id'];
+                    $val = $row['meta_value'];
+                    $string = str_replace('['.$key.']', $val, $string);
+                  }
+
+                  $vals[] = $string;
+                }
+              }
+              catch (Exception $e)                
+              {
+              }
+              $v = implode('', $vals);
+              break;
+
             case 'tel':
               $v2 = preg_replace('/[^0-9]+/', '', $v);
               $v2 = intval($v2);
@@ -155,13 +203,27 @@ class FDFMaker
 
             case 'date':
               if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
-              {
                 $v = $m[2] . '/' . $m[3] . '/' . substr($m[1], 2, 4);
-              }
               break;
 
+            case 'date2':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[3] . '/' . $m[2] . '/' . $m[1];
+              break;
+
+            case 'date3':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[2] . '/' . $m[3] . '/' . $m[1];
+              break;
+
+
+            case 'date4':
+              if ( preg_match('/^(\d{4})\-(\d{2})\-(\d{2})$/', $v, $m) )
+                $v = $m[1] . '/' . $m[2] . '/' . $m[3];
+              break;
+
+
             case 'returnToComma':
-              $v = str_replace("\r", "", $v);
               $v = str_replace("\n", ", ", $v);
               $v = preg_replace('/ +/', ' ', $v);
               $v = preg_replace('/\, +$/', '', $v);
@@ -169,6 +231,26 @@ class FDFMaker
 
             case 'capitalize':
               $v = preg_replace_callback('/(^[a-z]| [a-z])/u', 'fpropdf_custom_capitalize', $v);
+              break;
+
+
+            default:
+
+              if ( is_array($v) )
+              {
+                $_opts = @json_decode( $_format[ 3 ] );
+                if ( $_opts and is_array( $_opts ) and count($_opts) )
+                {
+                  $data[ $dataKey ][ 1 ] = true;
+                  foreach( $v as $_k => $_v )
+                    if ( !in_array( $_v, $_opts ) )
+                      unset( $v[ $_k ] );
+                }
+              }
+              else
+              {
+                $v = str_replace("\r", "", $v);
+              }
               break;
    
           }
@@ -186,30 +268,44 @@ class FDFMaker
       $currentLayout = false;
     }
 
-    foreach ( $data as $dataKey => $value ) 
-      $data[ $dataKey ][ 1 ] = stripslashes( $value[ 1 ] );
-      $encoded = $value[1];
-      if ( function_exists('mb_convert_encoding') )
-        $encoded = mb_convert_encoding( $encoded, 'UTF-16BE' );
-      elseif ( function_exists('iconv') )
-        $encoded = iconv( 'UTF-8', 'UTF-16BE', $encoded );
-      $data[ $dataKey ][ 1 ] = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), $encoded);
-
     // generate fields
     foreach($data as $values)
     {
       $index = $values[ 0 ];
       $value = $values[ 1 ];
 
-      $fdf .= $cr.'<<';
-      $fdf .= $cr.'/V ';
+      if ( !is_array($value) )
+        $_values = array( $value );
+      else
+      {
+        if ( $values[ 2 ] )
+          $_values = $value;
+        else
+          $_values = array( implode(', ', $value) );
+      }
 
-      if($value[0] == '/')
-        $fdf .= $value;
-      else $fdf .= '('.$value.')';
+      foreach ( $_values as $value )
+      {
 
-      $fdf .= $cr.'/T ('.$index.')';
-      $fdf .= $cr.'>> ';
+        $value = stripslashes( $value );
+        if ( function_exists('mb_convert_encoding') )
+          $value = mb_convert_encoding( $value, 'UTF-16BE' );
+        elseif ( function_exists('iconv') )
+          $value = iconv( 'UTF-8', 'UTF-16BE', $value );
+        $value = chr(0xfe) . chr(0xff) . str_replace(array('\\', '(', ')'), array('\\\\', '\(', '\)'), $value);
+
+        $fdf .= $cr.'<<';
+        $fdf .= $cr.'/V ';
+
+        if($value[0] == '/')
+          $fdf .= $value;
+        else $fdf .= '('.$value.')';
+
+        $fdf .= $cr.'/T ('.$index.')';
+        $fdf .= $cr.'>> ';
+
+      }
+
     }
 
     // make footer

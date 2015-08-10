@@ -1,7 +1,7 @@
 <?php
 /**
  * Plugin Name: Formidable PRO2PDF
- * Version: 1.6.0.7
+ * Version: 1.6.0.16
  * Description: This plugin allows to export data from Formidable Pro forms to PDF
  * Author: Alexandre S.
  * Plugin URI: http://www.formidablepro2pdf.com/
@@ -138,13 +138,49 @@ function wpfx_extract($layout, $id, $custom = false)
 
   $result = mysql_query($query);
 
-  // get data
+  $rows = array();
   while($row = mysql_fetch_array($result))
+    $rows[] = $row;
+
+  $entry = FrmEntry::getOne($id, true);
+  $fields = FrmField::get_all_for_form( $entry->form_id, '', 'include' );
+
+
+  foreach ( $rows as $index => $row )
   {
-    //print_r($row);
-    //$data [ $row['id'] ] = $row['value'];
+    $query  = "SELECT `type` FROM `".$wpdb->prefix."frm_fields` WHERE `id` = " . intval( $row['id'] );
+    $data = @mysql_fetch_array( @mysql_query( $query ) );
+    if ( !$data ) continue;
+    if ( ( $data['type'] == 'data' ) or ( $data['type'] == 'checkbox' ) )
+    {
+      foreach ( $fields as $field )
+      {
+        if ( $field->id != $row['id'] ) continue;
+        $embedded_field_id = ( $entry->form_id != $field->form_id ) ? 'form' . $field->form_id : 0;
+        $atts = array(
+          'type' => $field->type, 'post_id' => $entry->post_id,
+          'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
+          'embedded_field_id' => $embedded_field_id,
+        );
+
+        //if ( isset( $_GET['testing'] ) ) { print_r($entry); print_r($field); exit; }
+        //$rows[ $index ]['value'] = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+        $rows[ $index ]['value'] = $entry->metas[ $field->id ];
+      }
+
+      //$query  = "SELECT `meta_value` FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".intval( $row['value'] ) . ' ORDER BY id DESC LIMIT 1';
+      //$data2 = @mysql_fetch_array( @mysql_query( $query ) );
+      //if ( !$data2 ) continue;
+      //$rows[ $index ]['value'] = $data2['meta_value'];
+    }
+  }
+
+  // get data
+  foreach ( $rows as $row )
+  {
     $key = $row['id'];
     $val = $row['value'];
+
     $found = false;
     foreach ( $data as $dataKey => $values )
       if ( $values[ 0 ] == $key )
@@ -251,7 +287,7 @@ function fpropdf_check_code($code, $update=0)
       update_option('fpropdf_licence', $code);
     return true;
   }
-  update_option('fpropdf_licence', '');
+  update_option( 'fpropdf_licence', 'TRIAL' . strtoupper(FPROPDF_SALT) );
   throw new Exception('This licence code is not valid.');
   return false;
 }
@@ -273,6 +309,12 @@ function wpfx_admin()
 
   echo "<div class = '_first _left'>";
   echo "<h1>$wpfx_dsc</h1>";
+
+  if ( version_compare(PHP_VERSION, '5.3.0', '<') )
+  {
+    echo '<div class="error"><p>This plugin requires PHP version 5.3 or higher. Your version is '.PHP_VERSION.'. Please upgrade your PHP installation.</p></div>';
+    exit;
+  }
 
   if ( isset($_GET['action']) and ( $_GET['action'] == 'deactivatekey' ) )
   {
@@ -466,7 +508,8 @@ function wpfx_admin()
     {
       $to = $_POST['clto'][$index];
 
-      $formats[] = array( $to, $_POST['format'][ $index ] );
+      $formats[] = array( $to, $_POST['format'][ $index ], fpropdf_stripslashes( $_POST['repeatable_field'][ $index ] ), fpropdf_stripslashes( $_POST['checkbox_field'][ $index ] ) );
+
 
       if( strlen(trim($value)) && strlen(trim($to)) )
         $layout[] = array( $value, $to );
@@ -719,7 +762,7 @@ function wpfx_admin()
     if ( fpropdf_is_trial() )
       echo "<div class='updated'><p>You can activate only 1 form on this website. Please <a href='#' class='button-primary fpropdf-activate'>upgrade</a> if you want to use more forms.</p></div>";
     else
-      echo "<div class='updated'><p>Your licence key is <strong>".$code."</strong>. <br /> With this activation code, you can register up to <strong>".$result->licence->sites."</strong> site".($result->licence->sites == 1 ? '' : 's')." and up to <strong>".$result->licence->forms."</strong> form".($result->licence->forms == 1 ? '' : 's').". <a href='?page=fpdf&action=deactivatekey'>Click here to deactivate this key.</a> </p><p>You have <strong>".$result->sites_left."</strong> site".($result->licence->sites_left == 1 ? '' : 's')." and <strong>".$result->forms_left."</strong> form".($result->licence->forms_left == 1 ? '' : 's')." left.</p></div>";
+      echo "<div class='updated'><p>Your licence key is <strong>".$code."</strong>. <br /> It is valid until ".date('m/d/Y', strtotime( $result->licence->expires_on ))." <br />With this activation code, you can register up to <strong>".$result->licence->sites."</strong> site".($result->licence->sites == 1 ? '' : 's')." and up to <strong>".$result->licence->forms."</strong> form".($result->licence->forms == 1 ? '' : 's').". <a href='?page=fpdf&action=deactivatekey'>Click here to deactivate this key.</a> </p><p>You have <strong>".$result->sites_left."</strong> site".($result->licence->sites_left == 1 ? '' : 's')." and <strong>".$result->forms_left."</strong> form".($result->licence->forms_left == 1 ? '' : 's')." left.</p></div>";
 
     echo '<ol class="fpropdf-sites">';
     if ( ! count($result->sites) )
@@ -768,6 +811,9 @@ function wpfx_admin()
     echo '</div>';
     return;
   }
+
+  if ( function_exists('add_thickbox') )
+    add_thickbox();
 
   echo "<form method = 'POST' id='frm-bg' data-activated='".intval(!fpropdf_is_trial())."'>";
   echo "<table>";
@@ -1032,7 +1078,7 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
   //$file = mysql_real_escape_string($file);
   //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
-  $formats = serialize($formats);
+  $formats = mysql_real_escape_string( serialize($formats) );
 
   $query = "SELECT `id` FROM `".$wpdb->prefix."frm_forms` WHERE `form_key` = '$form'";
 
@@ -1051,7 +1097,6 @@ function wpfx_writelayout($name, $file, $visible, $form, $index, $data, $formats
 
   $res = mysql_query($query);
 
-  echo mysql_error(); echo $query; exit;
 
   return $res;
 }
@@ -1066,7 +1111,7 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
   //$file = mysql_real_escape_string($file);
   //$passwd = mysql_real_escape_string($passwd);
   $data = serialize($data);
-  $formats = serialize($formats);
+  $formats = mysql_real_escape_string( serialize($formats) );
 
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN formats TEXT");
   mysql_query("ALTER TABLE wp_fxlayouts ADD COLUMN passwd VARCHAR(255)");
@@ -1080,6 +1125,8 @@ function wpfx_updatelayout($id, $name, $file, $visible, $form, $index, $data, $f
              `add_att` = '$add_att',
              `passwd` = '$passwd',
              `created_at` = NOW() WHERE `ID` = $id";
+
+  //echo $query; mysql_query($query); exit;
 
   return mysql_query($query);
 }
@@ -1149,16 +1196,50 @@ function wpfx_getdataset()
 
           if ( $found )
           {
+            // Old code
+            //$query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
+            //$_name  = mysql_fetch_array(mysql_query($query));
+            //if ( $_name )
+            //{
+              //$name  = stripslashes($_name['value']);
+              //break;
+            //}
+
+            //print_r($row); print_r($count); exit;
+
+            $entry = FrmEntry::getOne($row['id'], true);
+            $fields = FrmField::get_all_for_form( $entry->form_id, '', 'include' );
+
+            $found2 = false;
+            foreach ( $fields as $field )
+            {
+              if ( $field->id != $count ) continue;
+              $embedded_field_id = ( $entry->form_id != $field->form_id ) ? 'form' . $field->form_id : 0;
+              $atts = array(
+                'type' => $field->type, 'post_id' => $entry->post_id,
+                'show_filename' => true, 'show_icon' => true, 'entry_id' => $entry->id,
+                'embedded_field_id' => $embedded_field_id,
+              );
+              $name = FrmEntriesHelper::prepare_display_value($entry, $field, $atts);
+
+
+
+              if ( $name )
+                $found2 = true;
+              break;
+            }
+
+            if ( $found2 ) continue;
+
+
             $query = "SELECT `meta_value` as value FROM `".$wpdb->prefix."frm_item_metas` WHERE `item_id` = ".$row['id']." AND `field_id` = $count";
-            //$name = $query;
             $_name  = mysql_fetch_array(mysql_query($query));
-            //$name = print_r($_name, true);
-            //print_r($_name);
             if ( $_name )
             {
               $name  = stripslashes($_name['value']);
               break;
             }
+
           }
 
           if ( ! $name )
@@ -1209,6 +1290,7 @@ function wpfx_peeklayout()
 
   $layout['imagesBase'] = plugins_url( '', __FILE__ );
   $layout['images'] = array();
+  $layout['checkboxes'] = array();
 
   try
   {
@@ -1220,6 +1302,26 @@ function wpfx_peeklayout()
       throw new Exception('PDFTK returned no fields.');
     $fields = $m[1];
     $layout['fields2'] = $fields;
+
+    $data2 = explode('---', $fields_data);
+    foreach ($data2 as $_row)
+    {
+      $_id = false;
+      $options = array();
+      $_row = explode("\n", $_row);
+      foreach ( $_row as $_line )
+      {
+        //if ( isset( $_GET['testing'] ) ) { echo $_line; }
+        if ( preg_match('/FieldName: (.*)$/', $_line, $m) )
+          $id = $m[ 1 ];
+        if ( $id )
+          if ( preg_match('/FieldStateOption: (.*)$/', $_line, $m) )
+            $options[] = $m[ 1 ];
+      }
+      if ( $id and count( $options ) )
+        $layout['checkboxes'][ $id ] = json_encode( $options );
+    }
+    //if ( isset( $_GET['testing'] ) ) {echo 'ok'; exit; }
   }
   catch (Exception $e)
   {
@@ -1244,7 +1346,27 @@ function wpfx_peeklayout()
       $name = trim($name);
       if ( $name == 'Section' ) continue;
       if ( $name == 'End Section' ) continue;
-      if ( $row->type == 'divider' ) continue;
+      if ( $row->type == 'checkbox' )
+      {
+        $checkboxes = array();
+        $_opts = @unserialize( $row->options );
+        if ( $_opts and is_array( $_opts ) )
+          foreach ( $_opts as $_opt )
+          {
+            //print_r($_opt); exit;
+            if ( is_array( $_opt ) )
+              $_opt = $_opt['value'];
+            $checkboxes[] = $_opt;
+          }
+        //$layout['checkboxes'][ $row->id ] = $checkboxes;
+      }
+      if ( $row->type == 'divider' )
+      {
+        $data = $row->field_options;
+        $data = @unserialize( $data );
+        if ( ! $data['repeat'] )
+          continue;
+      }
       if ( $row->type == 'html' ) continue;
       //$fields[ $row->id ] = "[" . $row->id . "] " . $name;
       $fields[] = array( $row->id, "[" . $row->id . "] " . $name );
@@ -1277,6 +1399,7 @@ function wpfx_peeklayout()
         'form'   => $layout['form'],
       );
       $post['pdf_file'] = '@' . realpath( $file );
+      $post['pdf_file_string'] = base64_encode( @file_get_contents( realpath( $file ) ) );
 
       $curl = curl_init();
       curl_setopt_array($curl, array(
@@ -1349,6 +1472,10 @@ function wpfx_duplayout()
 // Enqueue admin styles and scripts
 function wpfx_init()
 {
+
+  if ( $_GET['page'] != 'fpdf' )
+    return;
+
   wp_register_script( 'wpfx-script', plugins_url('/res/script.js', __FILE__), array(), @filemtime( __DIR__ . '/res/script.js' ) );
   wp_register_style ( 'wpfx-style',  plugins_url('/res/style.css', __FILE__) );
 
@@ -1457,6 +1584,13 @@ add_action('wp_ajax_nopriv_wpfx_preview_pdf',  'wpfx_preview_pdf');
 
 function wpfx_preview_pdf()
 {
+  if ( isset( $_GET['TB_iframe'] ) and $_GET['TB_iframe'] )
+  {
+    unset( $_GET['TB_iframe'] );
+    $src = '?' . http_build_query( $_GET );
+    echo '<img src="'.$src.'" />';
+    exit;
+  }
   include __DIR__ . '/preview.php';
   exit;
 }
@@ -1522,3 +1656,9 @@ function add_my_attachment($attachments, $form, $args)
 
 // Shortcode
 include_once __DIR__ . '/formidable-shortcode.php';
+
+function fpropdf_stripslashes($str)
+{
+        return stripslashes($str);
+        return get_magic_quotes_gpc() ? stripslashes($str) : $str;
+}
