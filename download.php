@@ -63,4 +63,10 @@ if ( preg_match("/<input type = 'hidden' name = 'lock' value = '([^']+)' /", $ht
 
 $_POST['download'] = 'Download';
 
+if ( $params['password'] )
+{
+  $_POST['passwd'] = stripslashes($params['password']);
+  //print_r($_POST); exit;
+}
+
 include __DIR__ . '/generate-pdf.php';

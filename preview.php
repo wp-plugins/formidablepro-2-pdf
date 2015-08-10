@@ -29,6 +29,9 @@ if ( $currentFile )
 $fieldId = $_REQUEST['field'];
 
 header('Content-Type: image/png');
+header('Pragma: public');
+header('Cache-Control: max-age=86400');
+header('Expires: '. gmdate('D, d M Y H:i:s \G\M\T', time() + 86400));
 
 $file_key = md5( file_get_contents($file) );
 
@@ -69,6 +72,7 @@ try
       'form'   => $_GET['form'],
     );
     $post['pdf_file'] = '@' . realpath( $file );
+    $post['pdf_file_string'] = base64_encode( @file_get_contents( realpath( $file ) ) );
 
     $curl = curl_init();
     curl_setopt_array($curl, array(
